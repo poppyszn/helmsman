@@ -59,7 +59,8 @@ func TestSecurityHeaders(t *testing.T) {
 
 func TestRateLimiter(t *testing.T) {
 	l := newRateLimiter(2, 1e9*60)
-	if !l.allow("a") || !l.allow("a") || l.allow("a") || !l.allow("b") {
+	first, second, third, other := l.allow("a"), l.allow("a"), l.allow("a"), l.allow("b")
+	if !first || !second || third || !other {
 		t.Fatal("limiter wrong")
 	}
 }

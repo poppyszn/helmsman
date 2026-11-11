@@ -103,37 +103,37 @@ Sign in as `bob` and open `demo-app` / `prod` to request a production migration,
 
 ## Production deploy (IDP host)
 
-For a home or lab server with no domain, follow [the home pilot guide](home-pilot.md) instead. It uses the same compose file with a TLS and backup overlay.
+Helmsman deploys itself. A push to `main` runs `.github/workflows/deploy.yml`: it checks the code, builds `ghcr.io/<owner>/helmsman-server:<commit sha>`, connects to the server over SSH, syncs the repository there, runs `deploy/server/preflight.sh`, and restarts only the `server` service. A push to the `production` branch does the same for the `production` GitHub Environment. The one-time setup of the host, the GitHub Environment secrets and the first deploy is in [the server setup guide](server-setup.md).
 
-You need a Linux host with Docker Compose v2 and nginx, a DNS name for it, and a TLS certificate (certbot is fine).
+The stack is `deploy/server/compose.yml`: Postgres, the server, and optionally Caddy (TLS) and a backup sidecar, chosen with `COMPOSE_PROFILES` in the host's `.env`. The server container is read-only, drops all capabilities, listens on `127.0.0.1:8080`, is limited to 256 MB, and checks itself with `/server healthcheck`. It runs as the limited `helmsman_app` database role, and migrates as the owner on start. If you would rather use nginx on the host than Caddy, leave out the `caddy` profile and install `deploy/nginx/idp.conf`.
 
-1. Install the server image by digest. The publish workflow pushes `ghcr.io/<owner>/helmsman-server`; copy the digest of the build you want into `IDP_IMAGE`.
-2. Copy `deploy/env.server.example` to `.env` (mode 600) and fill it in. Generate the keys with `openssl rand -hex 32`. `POSTGRES_PASSWORD` is the table owner, used only for migrations. `APP_DB_PASSWORD` is the password of the limited `helmsman_app` role the server runs as.
-3. Put the GitHub App key at `GITHUB_APP_KEY_FILE`, and check the catalog repository out at `CATALOG_DIR`.
-4. Start it: `docker compose -f deploy/compose.server.yml --env-file .env up -d`. The first boot creates the `helmsman_app` login role (`deploy/db/00-app-role.sh`). The server then migrates as the owner and runs as `helmsman_app`.
-5. Install `deploy/nginx/idp.conf` with your host name and certificate paths, then `nginx -t && systemctl reload nginx`. It sets the WebSocket upgrade headers and `proxy_read_timeout 3600s` for `/agent/ws` and `/ws/`.
-6. For each app repository, set required reviewers on the `production` GitHub environment. Helmsman also requires a second approver, but it cannot see this GitHub setting.
-7. Create the agents on the Agents page, give each host its join token, and install the agent as in `docs/agent-install.md`.
+### Upgrading and rolling back
 
-The server container is read-only, drops all capabilities, listens on `127.0.0.1:8080` and is limited to 256 MB. It checks itself with `/server healthcheck`.
-
-### Upgrading
-
-Pin the new digest in `IDP_IMAGE`, run `docker compose ... up -d`, and watch `docker compose logs idp`. Migrations are additive and run before the server starts serving. To roll back, put the previous digest back. Agents reconnect on their own.
+Merge to `main`. To roll back, run the **Deploy** workflow manually with the older `commit_sha`: it deploys that commit's image and files. Migrations are additive, so an older server runs against a newer schema. Agents reconnect on their own. The catalog is `deploy/server/apps.yaml`, so a catalog change is a pull request and a deploy.
 
 ## Backups and restore
 
-`deploy/backup/backup.sh` writes a custom-format `pg_dump` and keeps 14 days. Run it nightly from cron on the IDP host:
+With the `backup` profile on, a sidecar container takes a `pg_dump` into an S3 compatible bucket on start and then every night at `BACKUP_TIME`, and keeps `BACKUP_KEEP_DAYS` (14) days. The bundled bucket is Adobe S3Mock, which stores its data in a Docker volume on the same host. Set `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `BACKUP_BUCKET` in `.env` to use a real S3 provider instead.
 
+Run these from `deploy/server` on the host:
+
+```bash
+BK="docker compose --env-file .env run --rm backup"
+$BK list                                  # stored backups
+$BK once                                  # take one now
+$BK drill                                 # backup, restore into a scratch database, compare, verify
+RESTORE_CONFIRM=yes $BK restore latest    # replace the live database, then: docker compose restart server
 ```
-15 2 * * *  cd /opt/helmsman && BACKUP_DEST=s3://my-bucket/helmsman ./deploy/backup/backup.sh >> /var/log/helmsman-backup.log 2>&1
+
+The dump carries the agent credential hashes, so agents reconnect by themselves after a restore, and the catalog is in git. To keep a copy off the host:
+
+```bash
+docker run --rm -v helmsman_s3-data:/data -v "$PWD":/out alpine tar czf /out/helmsman-backups.tgz -C /data .
 ```
 
-With an S3 destination it uses the `aws` CLI (an instance role is best) and deletes dumps older than `BACKUP_KEEP_DAYS`. A bucket lifecycle rule of 14 days is a good second guard. With a directory as `BACKUP_DEST` it keeps local files.
+`deploy/backup/backup.sh`, `restore.sh` and `verify-restore.sh` do the same from the host with the `aws` CLI or a local directory, if you prefer cron on the host to the sidecar.
 
-Restore with `deploy/backup/restore.sh <dump or s3 url> [database]`. Passing a scratch database name is a drill. Restoring into the live database needs `RESTORE_CONFIRM=yes`, then `docker compose restart idp`. The dump carries the agent credential hashes, so agents reconnect by themselves, and the catalog is in git.
-
-**Restore drill.** `make backup-test` (or `deploy/backup/verify-restore.sh` on the host, with `COMPOSE_FILE` unset) takes a dump, restores it into a scratch database, compares row counts for the main tables, and checks that the append-only trigger and the limited role's missing audit privileges survived. Run it monthly. It last passed here with:
+**Restore drill.** `make backup-test` runs the drill against the dev stack, and `$BK drill` runs it on the host. It compares row counts for the main tables and checks that the append-only trigger and the limited role's missing audit privileges survived. Run it monthly. It last passed here with:
 
 ```
 ok   users: 4 rows         ok   action_runs: 9 rows
@@ -148,7 +148,7 @@ ok   role_bindings: 5 rows restore drill passed
 The server prunes every 6 hours: health checks after 24 hours, container events after 14 days, stored run logs after 30 days (the run records stay). Audit events are kept one year and can only be removed by the owner-only function, so add a cron entry as the database owner:
 
 ```
-30 3 * * 0  docker compose -f deploy/compose.server.yml exec -T postgres psql -U helmsman -d helmsman -c "SELECT audit_purge('365 days')"
+30 3 * * 0  docker compose -f deploy/server/compose.yml --env-file deploy/server/.env exec -T postgres psql -U helmsman -d helmsman -c "SELECT audit_purge('365 days')"
 ```
 
 The function refuses to keep under 90 days and writes an `audit.purge` event with the number of rows removed.

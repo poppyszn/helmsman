@@ -1,0 +1,5 @@
+# The catalog for this environment. Edit it in a pull request; the deploy puts it on the host and
+# the server reloads it within 30 seconds. See docs/catalog.md for the fields.
+# Agents must exist (created on the Agents page) before an environment can name them.
+version: 1
+apps: []

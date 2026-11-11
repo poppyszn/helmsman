@@ -66,7 +66,14 @@ func New(d Deps) (*Server, error) {
 	s := &Server{Deps: d, limiter: newRateLimiter(20, time.Minute),
 		actionLimiter: newRateLimiter(d.ActionsPerMinute, time.Minute), logLimiter: newRateLimiter(d.LogOpensPerMinute, time.Minute)}
 	r := chi.NewRouter()
-	r.Use(middleware.RealIP, middleware.Recoverer, timeoutExceptSockets(60*time.Second), securityHeaders)
+	trusted, err := parseCIDRs(DefaultTrustedProxies)
+	if d.Cfg.TrustedProxies != "" {
+		trusted, err = parseCIDRs(d.Cfg.TrustedProxies)
+	}
+	if err != nil {
+		return nil, err
+	}
+	r.Use(realIP(trusted), middleware.Recoverer, timeoutExceptSockets(60*time.Second), securityHeaders)
 	for _, rt := range s.Routes() {
 		if rt.Permission == "" {
 			return nil, fmt.Errorf("route %s %s declares no permission", rt.Method, rt.Path)

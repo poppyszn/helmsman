@@ -2,7 +2,7 @@
 
 A lightweight internal developer portal. One place to see every app in every environment, tail container logs, restart containers, run migrations and seeds through GitHub Actions, and follow deploys, all behind GitHub login with per-app, per-environment, per-action access control.
 
-Status: **M4**. GitHub login, app catalog, roles and bindings, the audit log, the agent, live status, log tailing, restarts, migrations and seeds through GitHub Actions with production approvals, and the Deployments tab all work. The production stack (`deploy/compose.server.yml`, nginx, nightly backups with a restore drill, least-privilege database role, optional break-glass admin) and the security checklist are in place. Remaining before a pilot: your host and domain, and your real catalog.
+Status: **M4**. GitHub login, app catalog, roles and bindings, the audit log, the agent, live status, log tailing, restarts, migrations and seeds through GitHub Actions with production approvals, and the Deployments tab all work. The production stack (`deploy/server/compose.yml`, Caddy or nginx, nightly backups with a restore drill, an SSH deploy pipeline, least-privilege database role, optional break-glass admin) and the security checklist are in place. Remaining before a pilot: your host and domain, and your real catalog.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ See the directory layout in `docs/catalog.md` and the code comments. Key parts: 
 
 - [Agent install](docs/agent-install.md)
 - [Catalog reference](docs/catalog.md)
-- [Home pilot](docs/home-pilot.md): run it on a home server with Docker, no domain and no AWS
+- [Server setup](docs/server-setup.md): put Helmsman on a public server and deploy it from GitHub Actions
 - [Runbook](docs/runbook.md): operations, production deploy, backups, load test
 - [Security checklist](docs/security.md): each control, where it lives and its test
 

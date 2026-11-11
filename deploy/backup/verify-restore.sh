@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-export COMPOSE_FILE="${COMPOSE_FILE:-deploy/compose.server.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-deploy/server/compose.yml}"
 PG_SERVICE="${PG_SERVICE:-postgres}"; PG_USER="${PG_USER:-helmsman}"; PG_DB="${PG_DB:-helmsman}"
 scratch="helmsman_restore_drill"
 dir="$(mktemp -d)"

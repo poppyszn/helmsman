@@ -42,6 +42,9 @@ type Config struct {
 	// GitHubAPIURL. Setting it lets the dev stack sign in through fake-github while
 	// dispatching to the real GitHub.
 	GitHubAppAPIURL string
+	// TrustedProxies are the networks allowed to set X-Forwarded-For (comma separated CIDRs).
+	// Empty means loopback and private ranges. Set it to the proxy address to be stricter.
+	TrustedProxies string
 	// GitHub endpoints. Defaults point at github.com; fake mode points at fake-github.
 	GitHubAuthURL  string // browser-facing authorize endpoint
 	GitHubTokenURL string // server-side token endpoint
@@ -83,6 +86,7 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		BreakglassTOTPSecret:   get("IDP_BREAKGLASS_TOTP_SECRET", ""),
 		GitHubAppKeyPath:       get("GITHUB_APP_PRIVATE_KEY_PATH", ""),
 		GitHubAppAPIURL:        strings.TrimRight(get("IDP_GITHUB_APP_API_URL", ""), "/"),
+		TrustedProxies:         get("IDP_TRUSTED_PROXIES", ""),
 		GitHubAuthURL:          get("IDP_GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"),
 		GitHubTokenURL:         get("IDP_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
 		GitHubAPIURL:           strings.TrimRight(get("IDP_GITHUB_API_URL", "https://api.github.com"), "/"),

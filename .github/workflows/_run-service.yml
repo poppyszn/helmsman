@@ -1,0 +1,124 @@
+# Vendored verbatim from the dev-pops cicd skill: assets/deploy-workflows/_run-service.yml
+# Source of truth is that file — re-copy from there, don't hand-edit here.
+# One-off run of a compose service on an environment's host (reusable
+# workflow): seeds, migrations on request, any task the compose file defines
+# as a service. Copy to the project's .github/workflows/_run-service.yml
+# unchanged, with the two vendored-copy header lines; the project's seed.yml
+# and migrate.yml call it. See references/deploy-pipeline.md.
+#
+# It runs against the build the last successful deploy put live (recorded on
+# the host by _deploy-pipeline.yml), so a seed never runs a newer image than the
+# one serving traffic, and it refuses to run before the first deploy.
+
+name: "Reusable: Run service"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment whose host runs the service (develop or production).
+        type: string
+        required: true
+      service:
+        description: Compose service to run once, e.g. seed or migrate.
+        type: string
+        required: true
+      compose-dir:
+        description: Folder holding compose.yml and the host's .env. Empty means docker/<environment>.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Run ${{ inputs.service }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      SERVICE: ${{ inputs.service }}
+      COMPOSE_DIR: ${{ inputs.compose-dir || format('docker/{0}', inputs.environment) }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_ACTOR: ${{ github.actor }}
+      REPO: ${{ github.repository }}
+      WORKING_DIR: ${{ secrets.WORKING_DIR }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      # || '22': an unset secret is an empty string, and `ssh -p ''` fails.
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+      SSH_JUMP_HOST: ${{ secrets.SSH_JUMP_HOST }}
+      SSH_USER_JUMP: ${{ secrets.SSH_USER_JUMP }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+    steps:
+      # A secret the caller does not pass resolves to an empty string with no error.
+      - name: Check required secrets
+        env:
+          HAS_SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+          HAS_SSH_USER: ${{ secrets.SSH_USER != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ "$HAS_SSH_USER" = true ] || missing="$missing SSH_USER"
+          [ "$HAS_SSH_PRIVATE_KEY" = true ] || missing="$missing SSH_PRIVATE_KEY"
+          [ -n "$SSH_KNOWN_HOSTS" ] || missing="$missing SSH_KNOWN_HOSTS"
+          [ -n "$WORKING_DIR" ] || missing="$missing WORKING_DIR"
+          if [ -n "$missing" ]; then
+            echo "Missing in the '$ENVIRONMENT' environment (or not passed by the caller):$missing" >&2
+            echo "The caller's job needs 'secrets: inherit'." >&2
+            exit 1
+          fi
+
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          {
+            echo "Host ${SSH_HOST}"
+            echo "  StrictHostKeyChecking yes"
+            if [ -n "$SSH_JUMP_HOST" ]; then
+              echo "  ProxyJump ${SSH_USER_JUMP}@${SSH_JUMP_HOST}"
+            fi
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Run the service once
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_TARGET" \
+            GH_TOKEN="$(printf '%q' "$GH_TOKEN")" \
+            GH_ACTOR="$(printf '%q' "$GH_ACTOR")" \
+            WORKING_DIR="$(printf '%q' "$WORKING_DIR")" \
+            REPO="$(printf '%q' "$REPO")" \
+            SERVICE="$(printf '%q' "$SERVICE")" \
+            COMPOSE_DIR="$(printf '%q' "$COMPOSE_DIR")" \
+            ENVIRONMENT="$(printf '%q' "$ENVIRONMENT")" \
+            'bash -s' << 'EOF'
+          set -euo pipefail
+          SHA_FILE="${WORKING_DIR}/${REPO##*/}.${ENVIRONMENT}.deployed-sha"
+          if [ ! -s "$SHA_FILE" ]; then
+            echo "Nothing has been deployed to '$ENVIRONMENT' yet ($SHA_FILE is missing). Deploy first." >&2
+            exit 1
+          fi
+          export IMAGE_TAG
+          IMAGE_TAG=$(cat "$SHA_FILE")
+          echo "Running '$SERVICE' against the deployed build $IMAGE_TAG"
+          cd "${WORKING_DIR}/${REPO##*/}/${COMPOSE_DIR}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker compose --env-file .env pull "$SERVICE"
+          # < /dev/null: `docker compose run` reads stdin, and this script is the stdin.
+          docker compose --env-file .env run --rm "$SERVICE" < /dev/null
+          EOF
