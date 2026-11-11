@@ -46,7 +46,7 @@ test.describe("carol (viewer on demo-app staging only)", () => {
     await page.goto("/apps/demo-app");
     await expect(page.getByRole("tab", { name: /staging/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /prod/ })).toHaveCount(0);
-    for (const item of ["Users", "Access", "Catalog", "Agents", "Audit log", "GitHub", "Approvals"]) {
+    for (const item of ["Users", "Access", "Catalog", "Agents", "Audit log", "GitHub", "Approvals", "Integrations"]) {
       await expect(page.getByRole("link", { name: item, exact: true })).toHaveCount(0);
     }
   });

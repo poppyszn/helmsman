@@ -13,9 +13,10 @@ backup-test: ## Backup the dev database, restore it into a scratch database and 
 	COMPOSE_FILE=deploy/compose.dev.yml deploy/backup/verify-restore.sh
 
 up-logs: ## Dev stack plus Loki and Alloy, for log history (see docs/logs.md)
-	IDP_LOKI_URL=http://loki:3100 COMPOSE_PROFILES=logs $(COMPOSE_DEV) up -d --build --wait --wait-timeout 180
+	COMPOSE_PROFILES=logs $(COMPOSE_DEV) up -d --build --wait --wait-timeout 180
 	@$(MAKE) --no-print-directory seed-dev
 	@echo "UI: http://localhost:5173  Loki: http://localhost:3100  Faro receiver: http://localhost:12347/collect"
+	@echo "Log history is not connected yet: sign in as alice, open Integrations, and connect http://loki:3100"
 
 up-github: ## Dev stack with a real GitHub App for runs (needs GITHUB_APP_ID in .env and deploy/secrets/github-app.pem)
 	$(COMPOSE_DEV) --env-file .env -f deploy/compose.github-app.yml up -d --build --wait --wait-timeout 180
@@ -53,6 +54,7 @@ e2e: ## Playwright end to end tests against the dev stack (starts it if needed),
 	docker run --rm --network helmsman-dev_default --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
 		-e E2E_BASE_URL=http://localhost:5173 -e E2E_FAKE_GITHUB=http://localhost:8090 \
 		-e E2E_FARO_URL=http://alloy:12347 -e E2E_STATIC_URL=http://static-demo \
+		-e E2E_EXPECT_LOKI=$(shell $(COMPOSE_DEV) ps --status running --services | grep -qx loki && echo true || echo false) \
 		mcr.microsoft.com/playwright:v1.65.0-noble ./run-dev.sh $(E2E_ARGS)
 
 e2e-server: ## Playwright checks of a real deployment. E2E_SERVER_URL, E2E_BREAKGLASS_PASSWORD, E2E_BREAKGLASS_TOTP_SECRET

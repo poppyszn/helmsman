@@ -192,3 +192,16 @@ export type HistoryResponse = {
 /** An nginx access line in the default "combined" format, or a JSON access line. The same test Alloy applies when it labels history. */
 const ACCESS_LINE = /^\S+ \S+ \S+ \[[^\]]+\] "[A-Z]+ [^"]*" \d{3} |^\{.*"(status|response_code)":\s*"?\d{3}"?.*"(request|uri|path)"/;
 export const isAccessLine = (text: string) => ACCESS_LINE.test(text);
+
+export type LokiStatus = {
+  connected: boolean;
+  enabled: boolean;
+  url: string;
+  user: string;
+  has_password: boolean;
+  source: "none" | "database" | "environment";
+  updated_by?: string;
+  updated_at?: string;
+};
+
+export type LokiTest = { reachable: boolean; error?: string; labels: string[] | null; has_logs: boolean; missing_labels?: string[] };

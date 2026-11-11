@@ -5,7 +5,7 @@ Helmsman shows two kinds of logs for each environment:
 - **Live tail**: straight from Docker through the agent, as before. No delay, nothing stored.
 - **History**: stored in Loki for 14 days, filled by Alloy. This is where you look when something broke an hour ago.
 
-Both are in the **logs** tab, switched with **live tail | history**. History needs the `logs` profile (Loki and Alloy). Without it the history view says it is not set up and live tail keeps working.
+Both are in the **logs** tab, switched with **live tail | history**. History is **optional and off by default**. An admin turns it on from **Integrations** in the sidebar by entering the address of a Loki; until then the history view says it is not connected and live tail keeps working.
 
 ```
  container logs ─ Alloy (each host) ─┐
@@ -51,22 +51,24 @@ The **live tail** has a **hide access lines** switch for the same reason.
 make up-logs
 ```
 
-This starts Loki, Alloy (container logs and the Faro receiver), and a small nginx app, `static-demo`, whose page posts browser telemetry. Open `static-demo`, then **logs > history**. The page is at http://localhost:9003; the **Send a browser error** button creates an exception. `make e2e` includes the history tests when this stack is running.
+This starts Loki, Alloy (container logs and the Faro receiver), and a small nginx app, `static-demo`, whose page posts browser telemetry. Nothing is connected yet: sign in as `alice`, open **Integrations**, enter `http://loki:3100`, **Test connection**, then **Save and turn on**. Open `static-demo`, then **logs > history**. The demo page is at http://localhost:9003; **Send a browser error** creates an exception. `make e2e` connects Loki itself and includes the history tests when this stack is running.
 
 ### The Helmsman server
 
-1. Add `logs` to `COMPOSE_PROFILES` in `deploy/server/.env` and set (see `env.example`):
+1. Run Loki and Alloy: add `logs` to `COMPOSE_PROFILES` in `deploy/server/.env` and set (see `env.example`):
    ```
-   IDP_LOKI_URL=http://loki:3100
    DOCKER_GID=999                      # stat -c %g /var/run/docker.sock
    LOG_HOST_NAME=<this host's agent id>
    LOG_PROJECTS=.+                     # compose projects whose container logs are collected
    FARO_ALLOWED_ORIGINS=https://my-web-app.example.com
    ```
-2. If browsers or other hosts will send logs, enable the public routes: copy `deploy/server/caddy/logs/logs.caddy.example` to `logs.caddy` (it is not committed, so a deploy leaves it alone). It adds `/faro/*` for browsers and an authenticated `/loki/api/v1/push` for Alloy on other hosts. Create the push password hash with `docker run --rm caddy caddy hash-password --plaintext '<password>'` and set `LOKI_PUSH_USER` and `LOKI_PUSH_PASSWORD_HASH` (single quoted) in `.env`.
-3. Start it from `deploy/server`: `docker compose --env-file .env up -d`. Loki's query API is never exposed through Caddy; only the push path, behind a password.
+   then `docker compose --env-file .env up -d` in `deploy/server`.
+2. In Helmsman, open **Integrations** as an admin. Enter `http://loki:3100`, click **Test connection** (you want "Loki answered"; "Loki is empty so far" is fine on a new setup), then **Save and turn on**. No restart. **Turn off** switches history off and keeps the settings; **Remove settings** forgets them. The password, if Loki needs one, is stored encrypted and never shown again.
+3. If browsers or other hosts will send logs, enable the public routes: copy `deploy/server/caddy/logs/logs.caddy.example` to `logs.caddy` (it is not committed, so a deploy leaves it alone). It adds `/faro/*` for browsers and an authenticated `/loki/api/v1/push` for Alloy on other hosts. Create the push password hash with `docker run --rm caddy caddy hash-password --plaintext '<password>'` and set `LOKI_PUSH_USER` and `LOKI_PUSH_PASSWORD_HASH` (single quoted) in `.env`. Loki's query API is never exposed through Caddy; only the push path, behind a password.
 
 `LOG_HOST_NAME` must equal the `agent:` of the environments on this host in `deploy/server/apps.yaml`. If they differ, the history view is empty.
+
+Already have a Loki? Skip step 1 and enter its address in step 2 (and a username and password if it sits behind a login). Point your own Alloy at it with the files in `deploy/alloy`.
 
 ### Other hosts
 
@@ -144,13 +146,13 @@ sum(count_over_time({source="browser", kind="exception", app="billing-web", env=
 
 ## Who can read history
 
-Reading history needs `logs.view` on that environment, the same as the live tail. Helmsman, not the browser, queries Loki, and it builds the selector itself from the catalog (project, service, host, Faro app, environment). The only free text a user can supply is the search box, which is escaped as a literal. Opening history is audited (`logs.history`: who, which environment, which filters) and never records the search text or any log content. History requests share the per-user limit of 60 log opens a minute. Retention is 14 days (`deploy/loki/loki.yaml`); lines can contain personal data, so grant `logs.view` on prod narrowly.
+Connecting Loki needs admin access (the Integrations page). Reading history needs `logs.view` on that environment, the same as the live tail. Helmsman, not the browser, queries Loki, and it builds the selector itself from the catalog (project, service, host, Faro app, environment). The only free text a user can supply is the search box, which is escaped as a literal. Opening history is audited (`logs.history`: who, which environment, which filters) and never records the search text or any log content. History requests share the per-user limit of 60 log opens a minute. Retention is 14 days (`deploy/loki/loki.yaml`); lines can contain personal data, so grant `logs.view` on prod narrowly.
 
 ## When history is empty
 
 | Symptom | Check |
 |---|---|
-| "Log history is not set up" | `IDP_LOKI_URL` is empty on the server, or the `logs` profile is off |
+| "Log history is not connected" | An admin has not connected Loki yet, or turned it off: open **Integrations** |
 | No container lines | `docker compose logs alloy`. `LOG_HOST_NAME` must equal the agent id, `LOG_PROJECTS` must match the compose project, and the container needs Docker compose labels |
 | Container lines but no browser lines | `app.name` and `app.environment` in the Faro setup, `logs.faro_app` in the catalog, and `FARO_ALLOWED_ORIGINS`. In the browser's network tab the post to `/faro/collect` should answer 202 |
 | Lines appear a few seconds late | Normal: Alloy batches, and Loki indexes before it serves |

@@ -27,6 +27,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/catalog"
 	"github.com/poppyszn/helmsman/internal/config"
 	"github.com/poppyszn/helmsman/internal/fakegithub"
+	"github.com/poppyszn/helmsman/internal/integrations"
 	"github.com/poppyszn/helmsman/internal/store"
 )
 
@@ -79,6 +80,7 @@ type env struct {
 	cfg     config.Config
 	hub     *agenthub.Hub
 	act     *actions.Service
+	integ   *integrations.Manager
 	deps    api.Deps
 	swap    func(http.Handler)
 }
@@ -159,7 +161,11 @@ func newEnvWith(t *testing.T, extra map[string]string) *env {
 	}
 	e.hub = agenthub.New(app, aw, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	e.act = newTestActions(t, app, aw, ghSrv.URL)
-	e.deps = api.Deps{Cfg: cfg, DB: app, Store: app, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub,
+	e.integ = integrations.New(app, cfg.EncryptionKey, integrations.EnvDefaults{})
+	if err := e.integ.Load(ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.deps = api.Deps{Cfg: cfg, DB: app, Store: app, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub, Loki: e.integ, Integrations: e.integ,
 		LogRecheck: 300 * time.Millisecond, UI: fstest.MapFS{"index.html": {Data: []byte("x")}}}
 	srv, err := api.New(e.deps)
 	if err != nil {

@@ -27,7 +27,19 @@ type Querier interface {
 	QueryRange(ctx context.Context, logql string, start, end time.Time, limit int) ([]Entry, error)
 	// Ready reports whether Loki answers.
 	Ready(ctx context.Context) error
+	// Labels lists the label names Loki knows, which shows whether Alloy has sent anything.
+	Labels(ctx context.Context) ([]string, error)
 }
+
+// Source hands out the Loki to use right now, or nil when log history is not connected. The answer can
+// change while the server runs, because an admin connects and disconnects Loki from the UI.
+type Source interface{ Current() Querier }
+
+// Static is a Source that always answers with one Querier (used by tests).
+type Static struct{ Q Querier }
+
+// Current implements Source.
+func (s Static) Current() Querier { return s.Q }
 
 // Client talks to Loki over HTTP.
 type Client struct {
@@ -77,6 +89,21 @@ func (c *Client) get(ctx context.Context, path string, q url.Values) ([]byte, er
 func (c *Client) Ready(ctx context.Context) error {
 	_, err := c.get(ctx, "/ready", nil)
 	return err
+}
+
+// Labels implements Querier.
+func (c *Client) Labels(ctx context.Context) ([]string, error) {
+	b, err := c.get(ctx, "/loki/api/v1/labels", nil)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Data []string `json:"data"`
+	}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, fmt.Errorf("loki: decode labels: %w", err)
+	}
+	return out.Data, nil
 }
 
 // QueryRange implements Querier.
