@@ -50,11 +50,10 @@ test: ## Run Go tests (with a throwaway Postgres) and web lint/typecheck, all in
 
 e2e: ## Playwright end to end tests against the dev stack (starts it if needed), all in Docker
 	@docker compose -f deploy/compose.dev.yml ps --status running --services | grep -qx server || $(MAKE) --no-print-directory up
-	docker build -q -t helmsman-e2e:local e2e >/dev/null
 	docker run --rm --network helmsman-dev_default --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
 		-e E2E_BASE_URL=http://localhost:5173 -e E2E_FAKE_GITHUB=http://localhost:8090 \
 		-e E2E_FARO_URL=http://alloy:12347 -e E2E_STATIC_URL=http://static-demo \
-		helmsman-e2e:local ./run-dev.sh $(E2E_ARGS)
+		mcr.microsoft.com/playwright:v1.65.0-noble ./run-dev.sh $(E2E_ARGS)
 
 e2e-server: ## Playwright checks of a real deployment. E2E_SERVER_URL, E2E_BREAKGLASS_PASSWORD, E2E_BREAKGLASS_TOTP_SECRET
 	docker run --rm --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
