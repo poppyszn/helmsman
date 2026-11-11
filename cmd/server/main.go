@@ -11,11 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/poppyszn/helmsman/internal/agenthub"
 	"github.com/poppyszn/helmsman/internal/api"
 	"github.com/poppyszn/helmsman/internal/audit"
 	"github.com/poppyszn/helmsman/internal/auth"
 	"github.com/poppyszn/helmsman/internal/catalog"
 	"github.com/poppyszn/helmsman/internal/config"
+	"github.com/poppyszn/helmsman/internal/health"
 	"github.com/poppyszn/helmsman/internal/store"
 	"github.com/poppyszn/helmsman/web"
 )
@@ -55,7 +57,12 @@ func run(log *slog.Logger) error {
 	go cat.Watch(ctx, 30*time.Second)
 	go authSvc.RunRefresh(ctx, 15*time.Minute)
 
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, UI: web.Dist()})
+	hub := agenthub.New(st, aw, log)
+	checker := &health.Checker{St: st, Agents: hub, Log: log}
+	go checker.Run(ctx)
+	go prune(ctx, st, log)
+
+	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Logs: hub, UI: web.Dist()})
 	if err != nil {
 		return err
 	}
@@ -71,4 +78,20 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	return nil
+}
+
+// prune keeps 14 days of container events and health checks.
+func prune(ctx context.Context, st *store.Store, log *slog.Logger) {
+	t := time.NewTicker(6 * time.Hour)
+	defer t.Stop()
+	for {
+		if err := st.Prune(ctx, time.Now().Add(-14*24*time.Hour)); err != nil && ctx.Err() == nil {
+			log.Error("prune", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }

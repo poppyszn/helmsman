@@ -30,7 +30,7 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
 export type Me = {
   user: { id: number; login: string; name: string | null; avatar_url: string | null; is_admin: boolean };
   csrf_token: string;
-  can: { admin: boolean; audit: boolean };
+  can: { admin: boolean; audit: boolean; agents: boolean };
   display_tz: string;
 };
 
@@ -47,10 +47,44 @@ export function useMe() {
   });
 }
 
-export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean };
+export type Status = "healthy" | "degraded" | "down" | "unknown";
+export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean; status: Status };
 export type App = { id: string; name: string; repo: string; environments: Env[] };
 
 export function formatTime(iso: string | null | undefined, tz: string): string {
   if (!iso) return "never";
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "medium", timeZone: tz }).format(new Date(iso));
 }
+
+export type EnvStatus = {
+  env: string;
+  status: Status;
+  reason: "" | "agent_offline" | "docker_unavailable" | "container_missing";
+  agent: { online: boolean; last_seen: string | null; version: string; outdated: boolean; docker_ok: boolean | null; protocol_version: number };
+  container: { state: string; health: string; image: string; revision: string; started_at: string | null; restart_count: number; updated_at: string } | null;
+  last_restart: string | null;
+  crash_loop: boolean;
+  health: { configured: boolean; via: string; latest: { status: string; http_code: number; latency_ms: number; checked_at: string } | null };
+  events: { at: string; agent_ts: string | null; event: string; detail: string | null }[];
+  can_logs: boolean;
+  can_restart: boolean;
+  blocked: { logs: string; restart: string };
+};
+
+export type Agent = {
+  id: string;
+  name: string;
+  version: string | null;
+  hostname: string | null;
+  protocol_version: number | null;
+  docker_ok: boolean | null;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  alert: string | null;
+  alert_at: string | null;
+  joined: boolean;
+  join_pending: boolean;
+  online: boolean;
+  outdated: boolean;
+};

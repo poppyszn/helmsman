@@ -1,0 +1,17 @@
+# Example agent.yaml for an app server. Mount it read-only at /etc/idp-agent/agent.yaml.
+# The agent refuses anything not listed here, even if the server asks for it.
+idp_url: wss://idp.example.com/agent/ws
+
+allow:
+  - compose_project: billing        # the docker compose project name
+    services: [api, worker]         # only these services are visible
+    actions: [logs, restart]        # logs, restart: there is nothing else the agent can do
+    health_urls:                    # exact URLs the server may ask this agent to probe
+      - http://api:8080/health
+
+limits:
+  max_streams: 5                    # concurrent log streams
+  max_lines_per_sec: 500            # per stream; excess lines are dropped with a marker
+  max_line_bytes: 16384             # longer lines are truncated with a marker
+
+snapshot_interval: 30s              # also the heartbeat; the server marks the agent offline after 60 s of silence

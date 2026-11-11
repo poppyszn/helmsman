@@ -86,14 +86,23 @@ services:
     restart: unless-stopped
 
   agent:
-    # M0 stub. M2 adds the real agent and auto-join with a dev token.
     build: { context: .., dockerfile: deploy/docker/agent.Dockerfile }
     user: "0:0"  # dev only: reads the host Docker socket without group_add
+    environment:
+      # Dev only: plain ws:// to the server on the compose network, and a fixed join token
+      # that `make seed-dev` registers. Real agents use wss:// and a token from the UI.
+      IDP_ALLOW_INSECURE: "true"
+      IDP_JOIN_TOKEN: dev-join-token-not-for-production
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./agent.dev.yaml:/etc/idp-agent/agent.yaml:ro
+      - agent-data:/data
     mem_limit: 64m
     cpus: 0.25
+    depends_on:
+      server: { condition: service_healthy }
     restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
   demo-app:
     build: { context: .., dockerfile: deploy/docker/tool.Dockerfile, args: { TOOL: demo-app } }
@@ -115,6 +124,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  agent-data: {}
   pgdata: {}
   gomod: {}
   gocache: {}

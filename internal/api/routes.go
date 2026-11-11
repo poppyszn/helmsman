@@ -58,6 +58,9 @@ func (s *Server) Routes() []Route {
 		{get, "/api/me", Authenticated, ScopeNone, s.handleMe, false},
 		{get, "/api/apps", "app.view", ScopeAny, s.handleListApps, false},
 		{get, "/api/apps/{app}", "app.view", ScopeApp, s.handleGetApp, false},
+		{get, "/api/apps/{app}/envs/{env}/status", "app.view", ScopeEnv, s.handleEnvStatus, false},
+		{post, "/api/apps/{app}/envs/{env}/restart", "action.restart", ScopeEnv, s.handleRestart, false},
+		{get, "/ws/apps/{app}/envs/{env}/logs", "logs.view", ScopeEnv, s.handleLogsWS, false},
 
 		{get, "/api/admin/users", "admin.access", ScopeGlobal, s.handleListUsers, false},
 		{get, "/api/admin/roles", "admin.access", ScopeGlobal, s.handleListRoles, false},
@@ -67,5 +70,16 @@ func (s *Server) Routes() []Route {
 		{get, "/api/admin/catalog", "admin.access", ScopeGlobal, s.handleCatalogStatus, false},
 		{post, "/api/admin/catalog/reload", "admin.access", ScopeGlobal, s.handleCatalogReload, false},
 		{get, "/api/admin/audit", "audit.view", ScopeGlobal, s.handleAudit, false},
+
+		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},
+		{post, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleCreateAgent, false},
+		{post, "/api/admin/agents/{id}/join-token", "admin.agents", ScopeGlobal, s.handleAgentJoinToken, false},
+		{post, "/api/admin/agents/{id}/revoke", "admin.agents", ScopeGlobal, s.handleRevokeAgent, false},
+		{post, "/api/admin/agents/{id}/ack-alert", "admin.agents", ScopeGlobal, s.handleAckAgentAlert, false},
+
+		// Agents authenticate with their own credential (bearer token / one-time join token),
+		// not a user session, so these two are the only Public routes besides login and probes.
+		{get, "/agent/ws", Public, ScopeNone, s.handleAgentWS, false},
+		{post, "/agent/join", Public, ScopeNone, s.handleAgentJoin, true},
 	}
 }

@@ -1,0 +1,14 @@
+# Dev agent config. Production agents list only the services they should expose.
+idp_url: ws://server:8080/agent/ws
+allow:
+  - compose_project: helmsman-dev
+    services: [demo-app, demo-app-2]
+    actions: [logs, restart]
+    health_urls:
+      - http://demo-app:8080/health
+      - http://demo-app-2:8080/health
+limits:
+  max_streams: 5
+  max_lines_per_sec: 500
+  max_line_bytes: 16384
+snapshot_interval: 30s

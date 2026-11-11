@@ -1,6 +1,10 @@
 -- Dev seed. Idempotent. Users are keyed on github_id; fake-github serves the same ids,
 -- and the first login fills in the profile. Bindings reference users by github_id.
-INSERT INTO agents (id, name) VALUES ('dev-agent', 'Local dev agent') ON CONFLICT DO NOTHING;
+-- The join token below is the fixed dev token set on the agent container in compose.dev.yml.
+-- Re-running this re-arms it, which also recovers an agent whose credential was lost.
+INSERT INTO agents (id, name, join_token_hash, join_expires_at)
+VALUES ('dev-agent', 'Local dev agent', sha256('dev-join-token-not-for-production'::bytea), now() + interval '10 years')
+ON CONFLICT (id) DO UPDATE SET join_token_hash = EXCLUDED.join_token_hash, join_expires_at = EXCLUDED.join_expires_at;
 
 INSERT INTO users (github_id, login, name) VALUES
   (1001, 'alice', 'Alice Admin'), (1002, 'bob', 'Bob Developer'),
