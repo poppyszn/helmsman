@@ -4,10 +4,13 @@ GO_NET := docker run --rm --network helmsman-dev_default -v $(CURDIR):/src -w /s
 NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 
 .DEFAULT_GOAL := help
-.PHONY: help up up-github down logs build test lint e2e seed-dev web-build
+.PHONY: help backup-test up up-github down logs build test lint e2e seed-dev web-build
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+
+backup-test: ## Backup the dev database, restore it into a scratch database and verify (restore drill)
+	COMPOSE_FILE=deploy/compose.dev.yml deploy/backup/verify-restore.sh
 
 up-github: ## Dev stack with a real GitHub App for runs (needs GITHUB_APP_ID in .env and deploy/secrets/github-app.pem)
 	$(COMPOSE_DEV) --env-file .env -f deploy/compose.github-app.yml up -d --build --wait --wait-timeout 180
@@ -36,7 +39,7 @@ web-build: ## Build the UI into web/dist
 test: ## Run Go tests (with a throwaway Postgres) and web lint/typecheck, all in Docker
 	$(COMPOSE_DEV) --profile test up -d --wait postgres-test
 	$(GO_NET) -e TEST_DATABASE_URL='postgres://helmsman:test@postgres-test:5432/helmsman?sslmode=disable' \
-		golang:1.26-alpine sh -c 'go vet ./... && go test -count=1 ./...'; \
+		golang:1.26-alpine sh -c 'go vet ./... && go test -p 1 -count=1 ./...'; \
 		rc=$$?; $(COMPOSE_DEV) --profile test rm -sf postgres-test >/dev/null 2>&1; test $$rc -eq 0
 	$(NODE_RUN) sh -c 'npm ci && npm run lint && npm run typecheck'
 

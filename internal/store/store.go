@@ -7,6 +7,7 @@ import (
 	"embed"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -21,6 +22,24 @@ type Store struct{ Pool *pgxpool.Pool }
 // Open connects to Postgres.
 func Open(ctx context.Context, url string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return &Store{Pool: pool}, nil
+}
+
+// OpenAs connects and switches every connection to the given role with SET ROLE. Tests use it to
+// run the whole server as the least-privilege role; production logs in as that role directly.
+func OpenAs(ctx context.Context, url, role string) (*Store, error) {
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("parse url: %w", err)
+	}
+	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+		_, err := c.Exec(ctx, "SET ROLE "+pgx.Identifier{role}.Sanitize())
+		return err
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}

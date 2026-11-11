@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/poppyszn/helmsman/internal/actions"
+	"github.com/poppyszn/helmsman/internal/api"
 	"github.com/poppyszn/helmsman/internal/audit"
 	"github.com/poppyszn/helmsman/internal/fakegithub"
 	"github.com/poppyszn/helmsman/internal/gh"
@@ -474,4 +475,38 @@ func TestInFlightRunsResumeAfterRestart(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 	}
 	t.Fatal("run was not resumed")
+}
+
+func TestActionsAndLogOpensAreRateLimitedPerUser(t *testing.T) {
+	r := newRunsEnv(t)
+	d := r.deps
+	d.ActionsPerMinute, d.LogOpensPerMinute = 3, 2
+	srv, err := api.New(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.swap(srv.Handler())
+	r.gh.SetScenario(fakegithub.Scenario{RunMS: 60000})
+	got := []int{}
+	for i := 0; i < 5; i++ {
+		code, _ := r.start(r.bob, "billing-api", "staging", "migrate")
+		got = append(got, code)
+	}
+	if got[3] != 429 || got[4] != 429 || got[0] == 429 {
+		t.Fatalf("the 4th action in a minute must be 429: %v", got)
+	}
+	// Another user has their own budget, and reads are not counted.
+	if code, _ := r.start(r.alice, "billing-api", "staging", "migrate"); code == 429 {
+		t.Fatal("limits are per user")
+	}
+	for i := 0; i < 6; i++ {
+		if c := r.bob.json("GET", "/api/apps", nil, nil); c != 200 {
+			t.Fatalf("reads must not be limited: %d", c)
+		}
+	}
+	for i, want := range []int{409, 409, 429} {
+		if c := r.bob.json("GET", "/ws/apps/billing-api/envs/staging/logs", nil, nil); c != want {
+			t.Fatalf("log open %d: got %d want %d (agent offline, then limited)", i, c, want)
+		}
+	}
 }

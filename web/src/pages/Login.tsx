@@ -1,7 +1,11 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Anchor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { api, ApiError } from "@/lib/api";
 
 function GithubIcon({ className = "size-4" }: { className?: string }) {
   return (
@@ -41,7 +45,53 @@ function message(code: string | null, org: string | null): string | null {
   }
 }
 
+function Breakglass() {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs font-mono text-zinc-500 hover:text-zinc-300 cursor-pointer">
+        Emergency access
+      </button>
+    );
+  }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api("/auth/breakglass", { method: "POST", json: { password, code } });
+      window.location.href = "/";
+    } catch (x) {
+      setErr(x instanceof ApiError ? x.message : "sign-in failed");
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl bg-[#0a0a0d] p-5 text-left">
+      <p className="text-xs text-zinc-400 font-mono">Local admin sign-in. Every attempt is audited.</p>
+      {err && <p role="alert" className="rounded-lg bg-rose-500/10 p-3 text-xs text-rose-300 font-mono">{err}</p>}
+      <label className="block text-xs font-mono text-zinc-400">
+        Password
+        <Input type="password" autoComplete="off" className="mt-1.5 bg-black" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </label>
+      <label className="block text-xs font-mono text-zinc-400">
+        Authenticator code
+        <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} className="mt-1.5 bg-black font-mono" value={code} onChange={(e) => setCode(e.target.value)} />
+      </label>
+      <Button type="submit" variant="secondary" className="w-full" disabled={busy || !password || code.length !== 6}>
+        Sign in
+      </Button>
+    </form>
+  );
+}
+
 export default function Login() {
+  const opts = useQuery<{ breakglass: boolean }>({ queryKey: ["auth-options"], queryFn: () => api("/auth/options"), retry: false });
   const [params] = useSearchParams();
   const msg = message(params.get("error"), params.get("org"));
 
@@ -71,6 +121,7 @@ export default function Login() {
             </a>
           </Button>
         </Card>
+        {opts.data?.breakglass && <Breakglass />}
       </div>
     </div>
   );

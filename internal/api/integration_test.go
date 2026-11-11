@@ -79,9 +79,14 @@ type env struct {
 	cfg     config.Config
 	hub     *agenthub.Hub
 	act     *actions.Service
+	deps    api.Deps
+	swap    func(http.Handler)
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvWith(t, nil) }
+
+// newEnvWith builds the environment with extra configuration variables.
+func newEnvWith(t *testing.T, extra map[string]string) *env {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -127,6 +132,9 @@ func newEnv(t *testing.T) *env {
 			"IDP_GITHUB_AUTH_URL": e.ghURL + "/login/oauth/authorize", "IDP_GITHUB_TOKEN_URL": e.ghURL + "/login/oauth/access_token",
 			"IDP_GITHUB_API_URL": e.ghURL,
 		}
+		for k2, v2 := range extra {
+			m[k2] = v2
+		}
 		v, ok := m[k]
 		return v, ok
 	})
@@ -134,23 +142,32 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e.cfg = cfg
-	aw := &audit.Writer{Pool: st.Pool}
-	e.auth = auth.NewService(cfg, st, aw)
+	// The server under test runs as the least-privilege role, exactly like production. The
+	// superuser store above stays for fixtures and assertions.
+	app, err := store.OpenAs(ctx, dsn, "helmsman_app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	aw := &audit.Writer{Pool: app.Pool}
+	e.auth = auth.NewService(cfg, app, aw)
 	e.catPath = filepath.Join(t.TempDir(), "apps.yaml")
 	e.writeCatalog(catalogYAML)
-	e.cat = catalog.NewManager(st.Pool, e.catPath, aw, st.AgentExists)
+	e.cat = catalog.NewManager(app.Pool, e.catPath, aw, app.AgentExists)
 	if err := e.cat.Reload(ctx, "test", true); err != nil {
 		t.Fatal(err)
 	}
-	e.hub = agenthub.New(st, aw, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	e.act = newTestActions(t, st, aw, ghSrv.URL)
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub,
-		LogRecheck: 300 * time.Millisecond, UI: fstest.MapFS{"index.html": {Data: []byte("x")}}})
+	e.hub = agenthub.New(app, aw, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	e.act = newTestActions(t, app, aw, ghSrv.URL)
+	e.deps = api.Deps{Cfg: cfg, DB: app, Store: app, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub,
+		LogRecheck: 300 * time.Millisecond, UI: fstest.MapFS{"index.html": {Data: []byte("x")}}}
+	srv, err := api.New(e.deps)
 	if err != nil {
 		t.Fatal(err)
 	}
 	h := srv.Handler()
 	handler.Store(&h)
+	e.swap = func(n http.Handler) { handler.Store(&n) }
 	return e
 }
 
@@ -444,7 +461,7 @@ func TestEveryRouteDeniesWithoutPermission(t *testing.T) {
 	nobody.login("carol") // signed in, zero bindings
 
 	publicWant := map[string]bool{"GET /healthz": true, "GET /readyz": true, "GET /auth/github/login": true, "GET /auth/github/callback": true,
-		"GET /agent/ws": true, "POST /agent/join": true}
+		"GET /agent/ws": true, "POST /agent/join": true, "GET /auth/options": true, "POST /auth/breakglass": true}
 	for _, rt := range srv.Routes() {
 		key := rt.Method + " " + rt.Path
 		path := strings.NewReplacer("{app}", "billing-api", "{env}", "prod", "{id}", "1").Replace(rt.Path)

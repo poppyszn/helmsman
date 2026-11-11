@@ -19,6 +19,15 @@ import (
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request)    { s.Auth.HandleLogin(w, r) }
 func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) { s.Auth.HandleCallback(w, r) }
 
+func (s *Server) handleBreakglass(w http.ResponseWriter, r *http.Request) {
+	s.Auth.HandleBreakglass(w, r)
+}
+
+// handleAuthOptions tells the login page whether to offer the emergency sign-in.
+func (s *Server) handleAuthOptions(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"breakglass": s.Auth.BreakglassEnabled()})
+}
+
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	c := rc(r)
 	s.Auth.Logout(w, r, c.SessionHash, c.User.Login)

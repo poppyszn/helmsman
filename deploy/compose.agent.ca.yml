@@ -1,0 +1,9 @@
+# For a home pilot where Caddy issues the certificate: make the agent trust Caddy's root CA.
+#   docker compose -f deploy/compose.agent.yml -f deploy/compose.agent.ca.yml up -d
+# Put the root certificate next to agent.yaml as deploy/idp-root.crt (see docs/home-pilot.md).
+services:
+  idp-agent:
+    environment:
+      SSL_CERT_FILE: /etc/idp-agent/idp-root.crt
+    volumes:
+      - ./idp-root.crt:/etc/idp-agent/idp-root.crt:ro

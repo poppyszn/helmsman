@@ -53,6 +53,8 @@ func (s *Server) Routes() []Route {
 
 		{get, "/auth/github/login", Public, ScopeNone, s.handleLogin, true},
 		{get, "/auth/github/callback", Public, ScopeNone, s.handleCallback, true},
+		{get, "/auth/options", Public, ScopeNone, s.handleAuthOptions, false},
+		{post, "/auth/breakglass", Public, ScopeNone, s.handleBreakglass, true},
 		{post, "/auth/logout", Authenticated, ScopeNone, s.handleLogout, false},
 
 		{get, "/api/me", Authenticated, ScopeNone, s.handleMe, false},

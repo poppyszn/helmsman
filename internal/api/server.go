@@ -39,19 +39,32 @@ type Deps struct {
 	UI      fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
 	LogRecheck time.Duration
+	// ActionsPerMinute caps state-changing requests per user (default 30); LogOpensPerMinute caps
+	// log streams opened per user (default 60).
+	ActionsPerMinute  int
+	LogOpensPerMinute int
 }
 
 // Server is the HTTP API.
 type Server struct {
 	Deps
-	mux      chi.Router
-	limiter  *rateLimiter
-	restarts inflight
+	mux           chi.Router
+	limiter       *rateLimiter
+	actionLimiter *rateLimiter
+	logLimiter    *rateLimiter
+	restarts      inflight
 }
 
 // New builds the router. It returns an error if any route lacks a permission.
 func New(d Deps) (*Server, error) {
-	s := &Server{Deps: d, limiter: newRateLimiter(20, time.Minute)}
+	if d.ActionsPerMinute <= 0 {
+		d.ActionsPerMinute = 30
+	}
+	if d.LogOpensPerMinute <= 0 {
+		d.LogOpensPerMinute = 60
+	}
+	s := &Server{Deps: d, limiter: newRateLimiter(20, time.Minute),
+		actionLimiter: newRateLimiter(d.ActionsPerMinute, time.Minute), logLimiter: newRateLimiter(d.LogOpensPerMinute, time.Minute)}
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP, middleware.Recoverer, timeoutExceptSockets(60*time.Second), securityHeaders)
 	for _, rt := range s.Routes() {

@@ -100,3 +100,87 @@ Sign in as `bob` and open `demo-app` / `prod` to request a production migration,
 - `unknown`: the dispatch was accepted but no run carried the correlation id. Check that the workflow's `run-name` includes `${{ inputs.correlation_id }}`, then open the workflow link on the run.
 - `failed` with "rejected the dispatch": the workflow does not accept the four inputs, the ref does not exist, or it has no `workflow_dispatch` trigger.
 - Actions disabled for a repository: open the GitHub admin page and read the reason.
+
+## Production deploy (IDP host)
+
+For a home or lab server with no domain, follow [the home pilot guide](home-pilot.md) instead. It uses the same compose file with a TLS and backup overlay.
+
+You need a Linux host with Docker Compose v2 and nginx, a DNS name for it, and a TLS certificate (certbot is fine).
+
+1. Install the server image by digest. The publish workflow pushes `ghcr.io/<owner>/helmsman-server`; copy the digest of the build you want into `IDP_IMAGE`.
+2. Copy `deploy/env.server.example` to `.env` (mode 600) and fill it in. Generate the keys with `openssl rand -hex 32`. `POSTGRES_PASSWORD` is the table owner, used only for migrations. `APP_DB_PASSWORD` is the password of the limited `helmsman_app` role the server runs as.
+3. Put the GitHub App key at `GITHUB_APP_KEY_FILE`, and check the catalog repository out at `CATALOG_DIR`.
+4. Start it: `docker compose -f deploy/compose.server.yml --env-file .env up -d`. The first boot creates the `helmsman_app` login role (`deploy/db/00-app-role.sh`). The server then migrates as the owner and runs as `helmsman_app`.
+5. Install `deploy/nginx/idp.conf` with your host name and certificate paths, then `nginx -t && systemctl reload nginx`. It sets the WebSocket upgrade headers and `proxy_read_timeout 3600s` for `/agent/ws` and `/ws/`.
+6. For each app repository, set required reviewers on the `production` GitHub environment. Helmsman also requires a second approver, but it cannot see this GitHub setting.
+7. Create the agents on the Agents page, give each host its join token, and install the agent as in `docs/agent-install.md`.
+
+The server container is read-only, drops all capabilities, listens on `127.0.0.1:8080` and is limited to 256 MB. It checks itself with `/server healthcheck`.
+
+### Upgrading
+
+Pin the new digest in `IDP_IMAGE`, run `docker compose ... up -d`, and watch `docker compose logs idp`. Migrations are additive and run before the server starts serving. To roll back, put the previous digest back. Agents reconnect on their own.
+
+## Backups and restore
+
+`deploy/backup/backup.sh` writes a custom-format `pg_dump` and keeps 14 days. Run it nightly from cron on the IDP host:
+
+```
+15 2 * * *  cd /opt/helmsman && BACKUP_DEST=s3://my-bucket/helmsman ./deploy/backup/backup.sh >> /var/log/helmsman-backup.log 2>&1
+```
+
+With an S3 destination it uses the `aws` CLI (an instance role is best) and deletes dumps older than `BACKUP_KEEP_DAYS`. A bucket lifecycle rule of 14 days is a good second guard. With a directory as `BACKUP_DEST` it keeps local files.
+
+Restore with `deploy/backup/restore.sh <dump or s3 url> [database]`. Passing a scratch database name is a drill. Restoring into the live database needs `RESTORE_CONFIRM=yes`, then `docker compose restart idp`. The dump carries the agent credential hashes, so agents reconnect by themselves, and the catalog is in git.
+
+**Restore drill.** `make backup-test` (or `deploy/backup/verify-restore.sh` on the host, with `COMPOSE_FILE` unset) takes a dump, restores it into a scratch database, compares row counts for the main tables, and checks that the append-only trigger and the limited role's missing audit privileges survived. Run it monthly. It last passed here with:
+
+```
+ok   users: 4 rows         ok   action_runs: 9 rows
+ok   apps: 1 rows          ok   audit_events: 94 rows
+ok   app_envs: 2 rows      ok   audit_events is still append-only
+ok   agents: 1 rows        ok   helmsman_app cannot update or delete audit events
+ok   role_bindings: 5 rows restore drill passed
+```
+
+## Retention
+
+The server prunes every 6 hours: health checks after 24 hours, container events after 14 days, stored run logs after 30 days (the run records stay). Audit events are kept one year and can only be removed by the owner-only function, so add a cron entry as the database owner:
+
+```
+30 3 * * 0  docker compose -f deploy/compose.server.yml exec -T postgres psql -U helmsman -d helmsman -c "SELECT audit_purge('365 days')"
+```
+
+The function refuses to keep under 90 days and writes an `audit.purge` event with the number of rows removed.
+
+## Break-glass admin
+
+Off by default. To enable it, run `go run ./cmd/breakglass-init` on an admin machine. It prints a random password (store it in your password manager), a TOTP secret (add it to an authenticator app) and the `IDP_BREAKGLASS_*` lines for `.env`. Set `IDP_BREAKGLASS_ENABLED=true` and restart. The login page then shows **Emergency access**. Sessions last one hour. Five failed attempts lock it for 15 minutes. Every attempt is in the audit log as `auth.breakglass`. Turn it off again once GitHub sign-in is back.
+
+## Load test
+
+`tools/loadtest` simulates agents and log viewers over the real protocol. It needs the dev stack with the load-test catalog and an empty database:
+
+```bash
+docker compose -f deploy/compose.dev.yml down -v
+docker compose -f deploy/compose.dev.yml -f deploy/compose.loadtest.yml up -d --build --wait
+make seed-dev
+go run ./tools/loadtest -url http://localhost:8080 -agents 20 -viewers 10 -duration 60s
+make up     # back to the normal catalog
+```
+
+Result on a MacBook Air (Docker Desktop), with the development build of the server:
+
+| Measure | Result |
+|---|---|
+| Agents connected | 20 of 20 |
+| Whole fleet dropped at once, time until all 20 were back | about 1 second, no agent stuck |
+| Snapshots and health checks | 260 snapshots, 40 health checks answered |
+| Log viewers | 10 concurrent, each on its own app, 0 open failures |
+| Log delivery | every line the agents sent reached a viewer (5950 of 5950) |
+| Time to first log line | p50 290 ms, p95 290 ms |
+| Server memory | 16 to 18 MiB during the run |
+| Postgres memory | 45 to 47 MiB |
+| Server CPU | 1 to 4 percent |
+
+The 10 viewers all report "closed early". That is the fleet-wide drop closing their streams, which is the intended behavior; the browser UI shows the stream as closed and the user reopens it. The tool does not reopen them. The 20 "agent errors" are the same drop, one per agent. The production image was not measured here, and the join endpoint's 20 per minute per-IP limit slowed the setup phase, which is why the tool retries joins.

@@ -1,6 +1,7 @@
 services:
   idp-agent:
-    image: ghcr.io/poppyszn/helmsman-agent:${AGENT_VERSION}
+    # AGENT_IMAGE lets a pilot use a locally built image (helmsman-agent:pilot) instead of GHCR.
+    image: ${AGENT_IMAGE:-ghcr.io/poppyszn/helmsman-agent:${AGENT_VERSION}}
     restart: unless-stopped
     environment:
       IDP_JOIN_TOKEN: ${IDP_JOIN_TOKEN:-}

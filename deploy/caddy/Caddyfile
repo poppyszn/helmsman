@@ -1,0 +1,16 @@
+# TLS for a home pilot without a public domain. Caddy runs its own certificate authority
+# ("tls internal") and issues a certificate for IDP_HOST, which can be a LAN host name or an IP.
+# Browsers and agents must trust Caddy's root certificate once; see docs/home-pilot.md.
+{$IDP_HOST} {
+	tls internal
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	request_body {
+		max_size 64KB
+	}
+	# WebSockets (agents and log streams) pass through. No read timeout is applied, so
+	# long-lived connections stay open.
+	reverse_proxy idp:8080 {
+		flush_interval -1
+	}
+}

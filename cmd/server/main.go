@@ -27,6 +27,10 @@ import (
 )
 
 func main() {
+	// "server healthcheck" lets the distroless image check itself (no shell or wget in it).
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck())
+	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(log); err != nil {
 		log.Error("fatal", "err", err)
@@ -42,14 +46,22 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Migrations run as the table owner. The server itself runs as the least-privilege role, which
+	// cannot update or delete audit events.
+	owner, err := store.Open(ctx, cfg.MigrateDatabaseURL)
+	if err != nil {
+		return err
+	}
+	err = owner.Migrate(ctx)
+	owner.Close()
+	if err != nil {
+		return err
+	}
 	st, err := store.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	if err := st.Migrate(ctx); err != nil {
-		return err
-	}
 
 	aw := &audit.Writer{Pool: st.Pool}
 	authSvc := auth.NewService(cfg, st, aw)
@@ -88,12 +100,12 @@ func run(log *slog.Logger) error {
 	return nil
 }
 
-// prune keeps 14 days of container events and health checks.
+// prune applies the retention windows every 6 hours.
 func prune(ctx context.Context, st *store.Store, log *slog.Logger) {
 	t := time.NewTicker(6 * time.Hour)
 	defer t.Stop()
 	for {
-		if err := st.Prune(ctx, time.Now().Add(-14*24*time.Hour)); err != nil && ctx.Err() == nil {
+		if err := st.Prune(ctx, time.Now()); err != nil && ctx.Err() == nil {
 			log.Error("prune", "err", err)
 		}
 		select {
@@ -144,3 +156,24 @@ func (u unconfigured) Token(context.Context, string) (string, error) {
 	return "", errors.New(string(u))
 }
 func (unconfigured) Invalidate(string) {}
+
+// healthcheck probes /readyz on the local listener and returns a process exit code.
+func healthcheck() int {
+	addr := os.Getenv("IDP_LISTEN")
+	if addr == "" {
+		addr = ":8080"
+	}
+	if addr[0] == ':' {
+		addr = "127.0.0.1" + addr
+	}
+	c := http.Client{Timeout: 2 * time.Second}
+	res, err := c.Get("http://" + addr + "/readyz")
+	if err != nil {
+		return 1
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
+}
