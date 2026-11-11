@@ -122,5 +122,7 @@ jobs:
         with:
           scan-type: config
           scan-ref: deploy
+          # The dev image runs as root on purpose (hot reload over a bind mount). It is never deployed.
+          skip-files: deploy/docker/server.dev.Dockerfile
           severity: HIGH,CRITICAL
           exit-code: "1"
