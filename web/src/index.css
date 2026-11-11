@@ -1,36 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --foreground: #171717;
-  --muted: #737373;
-  --border: #e5e5e5;
-  --card: #ffffff;
-  --primary: #1d4ed8;
-  --primary-foreground: #ffffff;
+  --background: #000000;
+  --foreground: #f4f4f5;
+  --muted: #a1a1aa;
+  --muted-foreground: #71717a;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #121215;
+  --card: #0a0a0d;
+  --card-foreground: #ffffff;
+  --card-hover: #121216;
+  --popover: #0a0a0d;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --accent: #18181c;
+  --accent-foreground: #ffffff;
+  --ring: #ffffff;
+
+  --rail: #050507;
+  --rail-border: rgba(255, 255, 255, 0.06);
+  --terminal: #060608;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-    --muted: #a3a3a3;
-    --border: #262626;
-    --card: #141414;
-    --primary: #3b82f6;
-    --primary-foreground: #0a0a0a;
-  }
-}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-hover: var(--card-hover);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+
+  --color-rail: var(--rail);
+  --color-rail-border: var(--rail-border);
+  --color-terminal: var(--terminal);
 }
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Minimal dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* Monospace font utility for system metadata */
+.font-mono-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
