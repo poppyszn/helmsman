@@ -35,7 +35,8 @@ func (f *fakeLoki) QueryRange(_ context.Context, q string, _, _ time.Time, limit
 	}
 	return nil, nil
 }
-func (f *fakeLoki) Ready(context.Context) error { return f.err }
+func (f *fakeLoki) Ready(context.Context) error              { return f.err }
+func (f *fakeLoki) Labels(context.Context) ([]string, error) { return nil, f.err }
 func (f *fakeLoki) seen() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -56,7 +57,7 @@ type histResp struct {
 func withLoki(t *testing.T, e *env, f *fakeLoki) {
 	t.Helper()
 	d := e.deps
-	d.Loki = f
+	d.Loki = loki.Static{Q: f}
 	srv, err := api.New(d)
 	if err != nil {
 		t.Fatal(err)

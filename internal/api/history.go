@@ -140,8 +140,12 @@ func textFilter(text string) string {
 }
 
 func (s *Server) handleLogHistory(w http.ResponseWriter, r *http.Request) {
-	if s.Loki == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "log history is not set up on this server", "code": "history_disabled"})
+	var lq loki.Querier
+	if s.Loki != nil {
+		lq = s.Loki.Current()
+	}
+	if lq == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "log history is not connected", "code": "history_disabled"})
 		return
 	}
 	app, env := chi.URLParam(r, "app"), chi.URLParam(r, "env")
@@ -232,7 +236,7 @@ func (s *Server) handleLogHistory(w http.ResponseWriter, r *http.Request) {
 			defer wg.Done()
 			ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 			defer cancel()
-			es, err := s.Loki.QueryRange(ctx, query, start, end, limit+1)
+			es, err := lq.QueryRange(ctx, query, start, end, limit+1)
 			results <- result{source, es, err}
 		}()
 	}

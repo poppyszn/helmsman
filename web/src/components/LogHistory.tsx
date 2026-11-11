@@ -1,7 +1,8 @@
 import { useDeferredValue, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Globe, RefreshCw, Search, Server } from "lucide-react";
-import { api, ApiError, formatTime, type HistoryEntry, type HistoryResponse } from "@/lib/api";
+import { api, ApiError, formatTime, useMe, type HistoryEntry, type HistoryResponse } from "@/lib/api";
 import { AnsiText } from "@/components/AnsiText";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,7 @@ function params(f: Filters, before?: string): string {
 }
 
 export function LogHistory({ app, env, tz }: { app: string; env: string; tz: string }) {
+  const { data: me } = useMe();
   const [range, setRange] = useState("1h");
   const [container, setContainer] = useState(true);
   const [browser, setBrowser] = useState(true);
@@ -118,8 +120,15 @@ export function LogHistory({ app, env, tz }: { app: string; env: string; tz: str
   if (q1.error?.status === 503) {
     return (
       <div className="rounded-xl bg-[#0a0a0d] p-8 text-center">
-        <p className="text-sm text-zinc-300">Log history is not set up on this server.</p>
-        <p className="mt-1.5 text-xs font-mono text-zinc-500">Live logs still work. See docs/logs.md to add Loki and Alloy.</p>
+        <p className="text-sm text-zinc-300">Log history is not connected.</p>
+        <p className="mt-1.5 text-xs font-mono text-zinc-500">Live tail still works.</p>
+        {me?.can.admin ? (
+          <Link to="/admin/integrations" className="mt-3 inline-block text-sm text-white underline underline-offset-4 hover:text-zinc-300">
+            Connect Loki in Integrations
+          </Link>
+        ) : (
+          <p className="mt-3 text-xs font-mono text-zinc-500">Ask an admin to connect Loki in Integrations.</p>
+        )}
       </div>
     );
   }

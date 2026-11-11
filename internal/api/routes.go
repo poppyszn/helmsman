@@ -46,6 +46,7 @@ func (s *Server) Routes() []Route {
 		get  = http.MethodGet
 		post = http.MethodPost
 		del  = http.MethodDelete
+		put  = http.MethodPut
 	)
 	return []Route{
 		{get, "/healthz", Public, ScopeNone, s.handleHealthz, false},
@@ -89,6 +90,10 @@ func (s *Server) Routes() []Route {
 		{post, "/api/admin/catalog/reload", "admin.access", ScopeGlobal, s.handleCatalogReload, false},
 		{get, "/api/admin/github", "admin.access", ScopeGlobal, s.handleGitHubStatus, false},
 		{post, "/api/admin/github/check", "admin.access", ScopeGlobal, s.handleGitHubCheck, false},
+		{get, "/api/admin/integrations", "admin.access", ScopeGlobal, s.handleIntegrations, false},
+		{post, "/api/admin/integrations/loki/test", "admin.access", ScopeGlobal, s.handleLokiTest, false},
+		{put, "/api/admin/integrations/loki", "admin.access", ScopeGlobal, s.handleLokiSave, false},
+		{del, "/api/admin/integrations/loki", "admin.access", ScopeGlobal, s.handleLokiRemove, false},
 		{get, "/api/admin/audit", "audit.view", ScopeGlobal, s.handleAudit, false},
 
 		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},

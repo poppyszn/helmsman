@@ -18,6 +18,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/auth"
 	"github.com/poppyszn/helmsman/internal/catalog"
 	"github.com/poppyszn/helmsman/internal/config"
+	"github.com/poppyszn/helmsman/internal/integrations"
 	"github.com/poppyszn/helmsman/internal/loki"
 	"github.com/poppyszn/helmsman/internal/store"
 )
@@ -38,10 +39,13 @@ type Deps struct {
 	Hub     *agenthub.Hub
 	Actions *actions.Service
 	Logs    agenthub.LogSource
-	// Loki serves log history. Nil means history is not set up.
-	Loki loki.Querier
-	Log  *slog.Logger
-	UI   fs.FS
+	// Loki says which Loki serves log history right now. Nil, or a source that answers nil, means
+	// history is not connected.
+	Loki loki.Source
+	// Integrations is the admin-managed connection to Loki (the Integrations page). Nil disables the page.
+	Integrations *integrations.Manager
+	Log          *slog.Logger
+	UI           fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
 	LogRecheck time.Duration
 	// ActionsPerMinute caps state-changing requests per user (default 30); LogOpensPerMinute caps

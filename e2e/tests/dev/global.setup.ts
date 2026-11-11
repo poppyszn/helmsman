@@ -42,3 +42,24 @@ setup("the stack is ready", async ({ browser }) => {
     .toBe(true);
   await ctx.close();
 });
+
+// If Loki is running (make up-logs), connect it the way an admin does from the Integrations page, so the
+// history tests have something to read. Loki needs about 15 seconds after it starts before it answers, so
+// when the Makefile says it is part of the stack, wait for it. A stack without Loki skips this.
+setup("connect log history when Loki is running", async ({ browser }) => {
+  setup.setTimeout(150_000);
+  const ctx = await browser.newContext({ storageState: authFile("alice"), baseURL: process.env.E2E_BASE_URL ?? "http://localhost:5173" });
+  const api = ctx.request;
+  const csrf = ((await (await api.get("/api/me")).json()) as { csrf_token: string }).csrf_token;
+  const headers = { "X-CSRF-Token": csrf };
+  const url = process.env.E2E_LOKI_URL ?? "http://loki:3100";
+  const reachable = async () => ((await (await api.post("/api/admin/integrations/loki/test", { headers, data: { url } })).json()) as { reachable: boolean }).reachable;
+  if (process.env.E2E_EXPECT_LOKI === "true") {
+    await expect.poll(reachable, { timeout: 120_000, intervals: [2_000], message: "Loki never became ready" }).toBe(true);
+  }
+  if (await reachable()) {
+    const res = await api.put("/api/admin/integrations/loki", { headers, data: { url, enabled: true } });
+    expect(res.status()).toBe(200);
+  }
+  await ctx.close();
+});

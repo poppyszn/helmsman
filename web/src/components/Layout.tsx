@@ -9,6 +9,7 @@ import {
   BookOpen,
   Cpu,
   GitBranch,
+  PlugZap,
   ShieldCheck,
   FileText,
   LogOut,
@@ -118,6 +119,12 @@ export default function Layout() {
             <NavLink to="/admin/github" className={navItemClass} title="GitHub">
               <GitBranch className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
               {!collapsed && <span>GitHub</span>}
+            </NavLink>
+          )}
+          {me.can.admin && (
+            <NavLink to="/admin/integrations" className={navItemClass} title="Integrations">
+              <PlugZap className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+              {!collapsed && <span>Integrations</span>}
             </NavLink>
           )}
           {me.can.agents && (
