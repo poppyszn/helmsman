@@ -52,9 +52,9 @@ export default function Users() {
               <Td>
                 <span className="font-mono text-sm text-zinc-100 font-semibold">{u.login}</span>
               </Td>
-              <Td className="text-sm text-zinc-300">{u.name || "—"}</Td>
+              <Td className="text-sm text-zinc-300">{u.name || "-"}</Td>
               <Td className="font-mono text-xs text-zinc-300">
-                {u.orgs.join(", ") || "—"}
+                {u.orgs.join(", ") || "-"}
               </Td>
               <Td className="font-mono text-xs text-zinc-400">
                 {formatTime(u.last_login_at, me.display_tz)}

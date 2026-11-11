@@ -62,7 +62,7 @@ export default function Audit() {
                 {a.action}
               </Td>
               <Td className="font-mono text-sm text-zinc-400">
-                {a.target || "—"}
+                {a.target || "-"}
               </Td>
               <Td>
                 <Badge tone={a.result === "ok" ? "ok" : "bad"}>

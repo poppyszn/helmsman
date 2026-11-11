@@ -145,7 +145,7 @@ export default function Layout() {
           >
             <Search className="size-3.5 text-zinc-500" strokeWidth={1.5} />
             <span>Search...</span>
-            <kbd className="rounded bg-[#1a1a20] px-1.5 py-0.5 text-[11px] font-mono text-zinc-300">
+            <kbd className="rounded bg-[#1a1a20] px-1.5 py-0.5 text-xs font-mono text-zinc-300">
               ⌘K
             </kbd>
           </button>

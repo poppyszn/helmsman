@@ -198,9 +198,9 @@ export default function Agents() {
                   {a.docker_ok === false && <Badge tone="warn">docker down</Badge>}
                 </div>
               </Td>
-              <Td className="font-mono text-xs text-zinc-300">{a.hostname || "—"}</Td>
+              <Td className="font-mono text-xs text-zinc-300">{a.hostname || "-"}</Td>
               <Td className="font-mono text-xs text-zinc-300">
-                {a.version ? `v${a.version}` : "—"}
+                {a.version ? `v${a.version}` : "-"}
                 {a.outdated && <Badge tone="warn" className="ml-1.5">outdated</Badge>}
               </Td>
               <Td className="font-mono text-xs text-zinc-400">
