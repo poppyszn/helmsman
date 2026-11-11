@@ -153,20 +153,22 @@ type TestResult struct {
 // NormalizeURL checks a Loki address. It must be http or https with a host, carry no credentials
 // (those have their own fields), and must not point at a cloud metadata endpoint. Private addresses are
 // allowed, because Loki normally runs on the internal network.
-func NormalizeURL(raw string) (string, error) {
+func NormalizeURL(raw string) (string, error) { return normalizeURL(raw, "Loki", "http://loki:3100") }
+
+func normalizeURL(raw, what, example string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", ErrInvalid("enter the address of Loki, for example http://loki:3100")
+		return "", ErrInvalid("enter the address of " + what + ", for example " + example)
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return "", ErrInvalid("the address must start with http:// or https://, for example http://loki:3100")
+		return "", ErrInvalid("the address must start with http:// or https://, for example " + example)
 	}
 	if u.User != nil {
 		return "", ErrInvalid("put the username and password in their own fields, not in the address")
 	}
 	if u.RawQuery != "" || u.Fragment != "" {
-		return "", ErrInvalid("the address must be the base of Loki, without a query or fragment")
+		return "", ErrInvalid("the address must be the base of " + what + ", without a query or fragment")
 	}
 	host := strings.ToLower(u.Hostname())
 	if host == "metadata.google.internal" || host == "metadata" {

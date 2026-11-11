@@ -14,11 +14,12 @@ const (
 	AdminAccess   = "admin.access"
 	AdminAgents   = "admin.agents"
 	AuditView     = "audit.view"
+	MailView      = "mail.view"
 )
 
 // AllPermissions lists every known permission.
 var AllPermissions = []string{AppView, DeployView, LogsView, ActionRestart, ActionMigrate,
-	ActionSeed, ActionApprove, AdminAccess, AdminAgents, AuditView}
+	ActionSeed, ActionApprove, AdminAccess, AdminAgents, AuditView, MailView}
 
 // Tiers.
 const (

@@ -49,6 +49,10 @@ type Config struct {
 	LokiURL      string
 	LokiUser     string
 	LokiPassword string
+	// MailpitURL connects the mail viewer to a Mailpit at start. An admin can change it on the Integrations page.
+	MailpitURL      string
+	MailpitUser     string
+	MailpitPassword string
 	// AuthRatePerMinute caps sign-in and agent-join attempts per client address (default 20).
 	// The dev stack raises it so end-to-end tests can sign in many times.
 	AuthRatePerMinute int
@@ -97,6 +101,9 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		LokiURL:                strings.TrimRight(get("IDP_LOKI_URL", ""), "/"),
 		LokiUser:               get("IDP_LOKI_USER", ""),
 		LokiPassword:           get("IDP_LOKI_PASSWORD", ""),
+		MailpitURL:             strings.TrimRight(get("IDP_MAILPIT_URL", ""), "/"),
+		MailpitUser:            get("IDP_MAILPIT_USER", ""),
+		MailpitPassword:        get("IDP_MAILPIT_PASSWORD", ""),
 		GitHubAuthURL:          get("IDP_GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"),
 		GitHubTokenURL:         get("IDP_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
 		GitHubAPIURL:           strings.TrimRight(get("IDP_GITHUB_API_URL", "https://api.github.com"), "/"),

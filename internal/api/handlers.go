@@ -44,6 +44,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 			"audit":   c.Principal.AllowedGlobal(rbac.AuditView),
 			"agents":  c.Principal.AllowedGlobal(rbac.AdminAgents),
 			"approve": c.Principal.AllowedAnyEnv(rbac.ActionApprove, rbac.Wildcard),
+			"mail":    c.Principal.AllowedGlobal(rbac.MailView),
 		},
 		"display_tz": s.Cfg.DisplayTZ,
 	})

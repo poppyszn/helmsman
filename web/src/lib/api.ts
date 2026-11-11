@@ -30,7 +30,7 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
 export type Me = {
   user: { id: number; login: string; name: string | null; avatar_url: string | null; is_admin: boolean };
   csrf_token: string;
-  can: { admin: boolean; audit: boolean; agents: boolean; approve: boolean };
+  can: { admin: boolean; audit: boolean; agents: boolean; approve: boolean; mail: boolean };
   display_tz: string;
 };
 
@@ -221,3 +221,46 @@ export type LokiStatus = {
 };
 
 export type LokiTest = { reachable: boolean; error?: string; labels: string[] | null; has_logs: boolean; missing_labels?: string[] };
+
+export type MailAddress = { Name: string; Address: string };
+export type MailSummary = {
+  ID: string;
+  Read: boolean;
+  From: MailAddress;
+  To: MailAddress[] | null;
+  Subject: string;
+  Created: string;
+  Snippet: string;
+  Size: number;
+  Attachments: number;
+  Tags: string[] | null;
+};
+export type MailList = { connected: boolean; total: number; unread: number; messages: MailSummary[] };
+export type MailAttachment = { PartID: string; FileName: string; ContentType: string; Size: number };
+export type MailMessage = {
+  ID: string;
+  From: MailAddress;
+  To: MailAddress[] | null;
+  Cc: MailAddress[] | null;
+  Bcc: MailAddress[] | null;
+  Subject: string;
+  Date: string;
+  Text: string;
+  HTML: string;
+  Size: number;
+  Attachments: MailAttachment[] | null;
+  Tags: string[] | null;
+};
+export type MailpitStatus = {
+  connected: boolean;
+  enabled: boolean;
+  url: string;
+  user: string;
+  has_password: boolean;
+  source: "none" | "database" | "environment";
+  updated_by?: string;
+  updated_at?: string;
+};
+export type MailpitTest = { reachable: boolean; version?: string; total: number; error?: string };
+
+export const mailAddr = (a: MailAddress | undefined | null) => (a ? (a.Name ? `${a.Name} <${a.Address}>` : a.Address) : "");

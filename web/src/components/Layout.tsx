@@ -12,6 +12,7 @@ import {
   PlugZap,
   ShieldCheck,
   FileText,
+  Mail as MailIcon,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -113,6 +114,12 @@ export default function Layout() {
               <ShieldCheck className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
               {!collapsed && <span>Approvals</span>}
               {!collapsed && pending > 0 && <span className="ml-auto rounded bg-amber-500/15 px-1.5 text-xs font-mono text-amber-300">{pending}</span>}
+            </NavLink>
+          )}
+          {me.can.mail && (
+            <NavLink to="/mail" className={navItemClass} title="Mail">
+              <MailIcon className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+              {!collapsed && <span>Mail</span>}
             </NavLink>
           )}
           {me.can.admin && (

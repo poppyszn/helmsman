@@ -5,6 +5,8 @@ import { authFile } from "../support";
 // history tests, and leaves things as it found them.
 test.describe.configure({ mode: "serial" });
 
+// The page has one card per integration; these tests are about the Loki one.
+const loki = (page: Page) => page.getByRole("region", { name: "Log history (Loki)" });
 const LOKI = process.env.E2E_LOKI_URL ?? "http://loki:3100"; // as the Helmsman server reaches it
 
 test.describe("as an admin", () => {
@@ -30,18 +32,18 @@ test.describe("as an admin", () => {
   test("a wrong address is explained in plain words, and nothing is turned on", async ({ page }) => {
     await open(page);
     await page.getByPlaceholder("http://loki:3100").fill("http://127.0.0.1:1");
-    await page.getByRole("button", { name: "Test connection" }).click();
-    await expect(page.getByLabel("Connection test")).toContainText("Nothing is listening at that address");
-    await page.getByRole("button", { name: /Save and turn on|Save changes/ }).click();
-    await expect(page.getByRole("alert")).toContainText("not turned on");
+    await loki(page).getByRole("button", { name: "Test connection" }).click();
+    await expect(loki(page).getByLabel("Connection test")).toContainText("Nothing is listening at that address");
+    await loki(page).getByRole("button", { name: /Save and turn on|Save changes/ }).click();
+    await expect(loki(page).getByRole("alert")).toContainText("not turned on");
   });
 
   test("an address that is not allowed is refused", async ({ page }) => {
     await open(page);
     for (const bad of ["ftp://loki:3100", "http://user:pw@loki:3100", "http://169.254.169.254/latest"]) {
       await page.getByPlaceholder("http://loki:3100").fill(bad);
-      await page.getByRole("button", { name: "Test connection" }).click();
-      await expect(page.getByRole("alert")).toBeVisible();
+      await loki(page).getByRole("button", { name: "Test connection" }).click();
+      await expect(loki(page).getByRole("alert")).toBeVisible();
     }
   });
 
@@ -54,12 +56,12 @@ test.describe("as an admin", () => {
 
     await open(page);
     await page.getByPlaceholder("http://loki:3100").fill(LOKI);
-    await page.getByRole("button", { name: "Test connection" }).click();
-    await expect(page.getByLabel("Connection test")).toContainText("Loki answered");
+    await loki(page).getByRole("button", { name: "Test connection" }).click();
+    await expect(loki(page).getByLabel("Connection test")).toContainText("Loki answered");
 
-    await page.getByRole("button", { name: /Save and turn on|Save changes/ }).click();
-    await expect(page.getByRole("status")).toContainText("Log history is on");
-    await expect(page.getByText("connected", { exact: true })).toBeVisible();
+    await loki(page).getByRole("button", { name: /Save and turn on|Save changes/ }).click();
+    await expect(loki(page).getByRole("status")).toContainText("Log history is on");
+    await expect(loki(page).getByText("connected", { exact: true })).toBeVisible();
 
     // History now works for an environment.
     await page.goto("/apps/static-demo");
@@ -68,9 +70,9 @@ test.describe("as an admin", () => {
 
     // Turn it off: history says so, and points an admin to this page.
     await open(page);
-    await page.getByRole("button", { name: "Turn off" }).click();
-    await expect(page.getByRole("status")).toContainText("Log history is off");
-    await expect(page.getByText("turned off", { exact: true })).toBeVisible();
+    await loki(page).getByRole("button", { name: "Turn off" }).click();
+    await expect(loki(page).getByRole("status")).toContainText("Log history is off");
+    await expect(loki(page).getByText("turned off", { exact: true })).toBeVisible();
     await page.goto("/apps/static-demo");
     await page.getByRole("button", { name: "history", exact: true }).click();
     await expect(page.getByText("Log history is not connected.")).toBeVisible();
@@ -78,10 +80,10 @@ test.describe("as an admin", () => {
     await expect(page).toHaveURL(/\/admin\/integrations/);
 
     // Turn it back on, then remove the saved settings (the server's environment, if any, applies again).
-    await page.getByRole("button", { name: /Save and turn on|Save changes/ }).click();
-    await expect(page.getByRole("status")).toContainText("Log history is on");
-    await page.getByRole("button", { name: "Remove settings" }).click();
-    await expect(page.getByRole("status")).toContainText("settings were removed");
+    await loki(page).getByRole("button", { name: /Save and turn on|Save changes/ }).click();
+    await expect(loki(page).getByRole("status")).toContainText("Log history is on");
+    await loki(page).getByRole("button", { name: "Remove settings" }).click();
+    await expect(loki(page).getByRole("status")).toContainText("settings were removed");
   });
 
   test("changes are in the audit log, without any password", async ({ page }) => {

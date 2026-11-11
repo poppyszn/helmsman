@@ -81,6 +81,7 @@ type env struct {
 	hub     *agenthub.Hub
 	act     *actions.Service
 	integ   *integrations.Manager
+	mail    *integrations.MailManager
 	deps    api.Deps
 	swap    func(http.Handler)
 }
@@ -165,7 +166,11 @@ func newEnvWith(t *testing.T, extra map[string]string) *env {
 	if err := e.integ.Load(ctx); err != nil {
 		t.Fatal(err)
 	}
-	e.deps = api.Deps{Cfg: cfg, DB: app, Store: app, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub, Loki: e.integ, Integrations: e.integ,
+	e.mail = integrations.NewMail(app, cfg.EncryptionKey, integrations.EnvDefaults{})
+	if err := e.mail.Load(ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.deps = api.Deps{Cfg: cfg, DB: app, Store: app, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub, Loki: e.integ, Integrations: e.integ, Mail: e.mail, MailAdmin: e.mail,
 		LogRecheck: 300 * time.Millisecond, UI: fstest.MapFS{"index.html": {Data: []byte("x")}}}
 	srv, err := api.New(e.deps)
 	if err != nil {

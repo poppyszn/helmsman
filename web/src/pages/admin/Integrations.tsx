@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CircleAlert, Loader2, PlugZap } from "lucide-react";
-import { api, ApiError, formatTime, useMe, type LokiStatus, type LokiTest } from "@/lib/api";
+import { api, ApiError, formatTime, useMe, type LokiStatus, type LokiTest, type MailpitStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MailpitCard } from "@/pages/admin/MailpitCard";
 
-type Resp = { loki: LokiStatus };
+type Resp = { loki: LokiStatus; mailpit?: MailpitStatus };
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -95,7 +96,7 @@ export default function Integrations() {
       setDone(null);
     },
     onSuccess: (r, enabled) => {
-      qc.setQueryData(["integrations"], { loki: r.loki });
+      qc.setQueryData<Resp>(["integrations"], (old) => ({ ...old, loki: r.loki }));
       qc.invalidateQueries({ queryKey: ["log-history"] });
       setTest(r.test);
       setChangePassword(false);
@@ -113,7 +114,7 @@ export default function Integrations() {
   const remove = useMutation({
     mutationFn: () => api<Resp>("/api/admin/integrations/loki", { method: "DELETE" }),
     onSuccess: (r) => {
-      qc.setQueryData(["integrations"], r);
+      qc.setQueryData<Resp>(["integrations"], (old) => ({ ...old, loki: r.loki }));
       qc.invalidateQueries({ queryKey: ["log-history"] });
       setUrl("");
       setUser("");
@@ -133,7 +134,7 @@ export default function Integrations() {
         <p className="mt-1 text-sm text-zinc-400">Optional services that add to Helmsman. Nothing here is needed to run it.</p>
       </div>
 
-      <Card className="space-y-5 bg-[#0a0a0d] p-6">
+      <Card role="region" aria-label="Log history (Loki)" className="space-y-5 bg-[#0a0a0d] p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <PlugZap className="mt-0.5 size-5 text-zinc-400" strokeWidth={1.5} />
@@ -220,6 +221,8 @@ export default function Integrations() {
           </p>
         )}
       </Card>
+
+      <MailpitCard />
 
       <Card className="bg-[#0a0a0d] p-6">
         <details open={!connected}>

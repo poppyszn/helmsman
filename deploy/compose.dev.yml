@@ -59,6 +59,7 @@ services:
       IDP_AUTH_RATE_PER_MINUTE: "300"
       # Log history: set by `make up-logs`, which also starts Loki and Alloy.
       IDP_LOKI_URL: ${IDP_LOKI_URL:-}
+      IDP_MAILPIT_URL: http://mailpit:8025
     ports: ["127.0.0.1:8080:8080"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]
@@ -121,6 +122,14 @@ services:
     volumes:
       - ../deploy/static-demo/index.html:/usr/share/nginx/html/index.html:ro
     ports: ["127.0.0.1:9003:80"]
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  # A mail catcher for development environments. Apps send mail to mailpit:1025; Helmsman's Mail page reads
+  # it over the API (connected on the Integrations page, or at start by IDP_MAILPIT_URL).
+  mailpit:
+    image: axllent/mailpit@sha256:6abc8e633df15eaf785cfcf38bae48e66f64beecdc03121e249d0f9ec15f0707
+    ports: ["127.0.0.1:8025:8025", "127.0.0.1:1025:1025"]
     restart: unless-stopped
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 

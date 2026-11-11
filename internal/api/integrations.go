@@ -41,7 +41,11 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, _ *http.Request) {
 	if s.integrationsOff(w) {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"loki": s.Integrations.Status()})
+	out := map[string]any{"loki": s.Integrations.Status()}
+	if s.MailAdmin != nil {
+		out["mailpit"] = s.MailAdmin.Status()
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func decodeLoki(w http.ResponseWriter, r *http.Request) (lokiBody, bool) {

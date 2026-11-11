@@ -96,6 +96,13 @@ func (s *Server) Routes() []Route {
 		{post, "/api/admin/integrations/loki/test", "admin.access", ScopeGlobal, s.handleLokiTest, false},
 		{put, "/api/admin/integrations/loki", "admin.access", ScopeGlobal, s.handleLokiSave, false},
 		{del, "/api/admin/integrations/loki", "admin.access", ScopeGlobal, s.handleLokiRemove, false},
+		{post, "/api/admin/integrations/mailpit/test", "admin.access", ScopeGlobal, s.handleMailpitTest, false},
+		{put, "/api/admin/integrations/mailpit", "admin.access", ScopeGlobal, s.handleMailpitSave, false},
+		{del, "/api/admin/integrations/mailpit", "admin.access", ScopeGlobal, s.handleMailpitRemove, false},
+		// The Mail page: messages the development environments sent, read from the connected Mailpit.
+		{get, "/api/mail/messages", "mail.view", ScopeGlobal, s.handleMailList, false},
+		{get, "/api/mail/messages/{id}", "mail.view", ScopeGlobal, s.handleMailMessage, false},
+		{get, "/api/mail/messages/{id}/attachments/{part}", "mail.view", ScopeGlobal, s.handleMailAttachment, false},
 		{get, "/api/admin/audit", "audit.view", ScopeGlobal, s.handleAudit, false},
 
 		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},

@@ -228,7 +228,8 @@ func TestIntegrationsAreAdminOnly(t *testing.T) {
 	bob := e.client()
 	bob.login("bob")
 	e.bind("user", itoa(e.userID("bob")), "developer", "billing-api", "*")
-	for _, c := range []struct{ m, p string }{{"GET", "/api/admin/integrations"}, {"POST", "/api/admin/integrations/loki/test"}, {"PUT", "/api/admin/integrations/loki"}, {"DELETE", "/api/admin/integrations/loki"}} {
+	for _, c := range []struct{ m, p string }{{"GET", "/api/admin/integrations"}, {"POST", "/api/admin/integrations/loki/test"}, {"PUT", "/api/admin/integrations/loki"}, {"DELETE", "/api/admin/integrations/loki"},
+		{"POST", "/api/admin/integrations/mailpit/test"}, {"PUT", "/api/admin/integrations/mailpit"}, {"DELETE", "/api/admin/integrations/mailpit"}} {
 		if code := bob.json(c.m, c.p, map[string]any{"url": "http://loki:3100"}, nil); code != 403 {
 			t.Errorf("%s %s: %d", c.m, c.p, code)
 		}

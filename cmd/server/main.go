@@ -87,7 +87,11 @@ func run(log *slog.Logger) error {
 	if err := integ.Load(ctx); err != nil {
 		log.Error("load integrations", "err", err)
 	}
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Log: log, UI: web.Dist()})
+	mailInteg := integrations.NewMail(st, cfg.EncryptionKey, integrations.EnvDefaults{URL: cfg.MailpitURL, User: cfg.MailpitUser, Password: cfg.MailpitPassword})
+	if err := mailInteg.Load(ctx); err != nil {
+		log.Error("load mail integration", "err", err)
+	}
+	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Mail: mailInteg, MailAdmin: mailInteg, Log: log, UI: web.Dist()})
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import Audit from "@/pages/admin/Audit";
 import Catalog from "@/pages/admin/Catalog";
 import Agents from "@/pages/admin/Agents";
 import Approvals from "@/pages/Approvals";
+import Mail from "@/pages/Mail";
 import GitHub from "@/pages/admin/GitHub";
 import Integrations from "@/pages/admin/Integrations";
 
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/admin/catalog" element={<Catalog />} />
         <Route path="/admin/agents" element={<Agents />} />
         <Route path="/approvals" element={<Approvals />} />
+        <Route path="/mail" element={<Mail />} />
         <Route path="/admin/github" element={<GitHub />} />
         <Route path="/admin/integrations" element={<Integrations />} />
         <Route path="/admin/audit" element={<Audit />} />

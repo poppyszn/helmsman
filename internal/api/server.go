@@ -20,6 +20,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/config"
 	"github.com/poppyszn/helmsman/internal/integrations"
 	"github.com/poppyszn/helmsman/internal/loki"
+	"github.com/poppyszn/helmsman/internal/mailpit"
 	"github.com/poppyszn/helmsman/internal/store"
 )
 
@@ -44,8 +45,12 @@ type Deps struct {
 	Loki loki.Source
 	// Integrations is the admin-managed connection to Loki (the Integrations page). Nil disables the page.
 	Integrations *integrations.Manager
-	Log          *slog.Logger
-	UI           fs.FS
+	// Mail says which Mailpit serves the Mail page right now (nil when not connected), and MailAdmin is the
+	// admin-managed connection behind it.
+	Mail      mailpit.Source
+	MailAdmin *integrations.MailManager
+	Log       *slog.Logger
+	UI        fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
 	LogRecheck time.Duration
 	// ActionsPerMinute caps state-changing requests per user (default 30); LogOpensPerMinute caps
