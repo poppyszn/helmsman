@@ -126,3 +126,25 @@ jobs:
           skip-files: deploy/docker/server.dev.Dockerfile
           severity: HIGH,CRITICAL
           exit-code: "1"
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start the dev stack
+        run: make up
+      - name: Playwright end-to-end tests
+        run: make e2e
+      - name: Dev stack logs
+        if: failure()
+        run: docker compose -f deploy/compose.dev.yml logs --tail 200
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7

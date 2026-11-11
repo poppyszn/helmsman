@@ -4,7 +4,7 @@ GO_NET := docker run --rm --network helmsman-dev_default -v $(CURDIR):/src -w /s
 NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 
 .DEFAULT_GOAL := help
-.PHONY: help backup-test up up-github down logs build test lint e2e seed-dev web-build
+.PHONY: help e2e-server backup-test up up-github down logs build test lint e2e seed-dev web-build
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -43,8 +43,17 @@ test: ## Run Go tests (with a throwaway Postgres) and web lint/typecheck, all in
 		rc=$$?; $(COMPOSE_DEV) --profile test rm -sf postgres-test >/dev/null 2>&1; test $$rc -eq 0
 	$(NODE_RUN) sh -c 'npm ci && npm run lint && npm run typecheck'
 
-e2e: ## Playwright end to end tests (arrive in M1+)
-	@echo "e2e: no tests yet (first added in M1)"
+e2e: ## Playwright end to end tests against the dev stack (starts it if needed), all in Docker
+	@docker compose -f deploy/compose.dev.yml ps --status running --services | grep -qx server || $(MAKE) --no-print-directory up
+	docker build -q -t helmsman-e2e:local e2e >/dev/null
+	docker run --rm --network helmsman-dev_default --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
+		-e E2E_BASE_URL=http://localhost:5173 -e E2E_FAKE_GITHUB=http://localhost:8090 \
+		helmsman-e2e:local ./run-dev.sh $(E2E_ARGS)
+
+e2e-server: ## Playwright checks of a real deployment. E2E_SERVER_URL, E2E_BREAKGLASS_PASSWORD, E2E_BREAKGLASS_TOTP_SECRET
+	docker run --rm --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
+		-e E2E_SERVER_URL -e E2E_BREAKGLASS_PASSWORD -e E2E_BREAKGLASS_TOTP_SECRET \
+		mcr.microsoft.com/playwright:v1.65.0-noble sh -c 'npm install --no-audit --no-fund --silent && npx playwright test --project=server $(E2E_ARGS)'
 
 seed-dev: ## Seed the dev agent, users and role bindings
 	$(COMPOSE_DEV) exec -T postgres psql -U helmsman -d helmsman -v ON_ERROR_STOP=1 < deploy/seed-dev.sql

@@ -10,7 +10,7 @@ Put Helmsman on a server with a public address and deploy it from GitHub Actions
  app servers: agent ─ wss ─> Caddy ─> Helmsman             (agents dial out, no inbound ports)
 ```
 
-You need: a Linux server with a public IP (x86 or ARM), a DNS name pointing at it, and admin rights on `poppyszn/helmsman` and the `pops-personal-org` organization. Replace `helmsman.example.com` below with your name. About 30 minutes.
+You need: an x86 Linux server with a public IP, the DNS name `helmsman.vasconsolutionsapp.com` pointing at it, and admin rights on `poppyszn/helmsman` and the `pops-personal-org` organization. About 30 minutes.
 
 ## 1. Prepare the server
 
@@ -26,7 +26,7 @@ chown deploy:deploy /opt/helmsman-secrets && chmod 700 /opt/helmsman-secrets
 
 Open ports **22** (SSH, key only), **80** and **443** in the firewall or cloud security group. Do not open 8080 or 5432.
 
-Point a DNS `A` record for `helmsman.example.com` at the server and wait until `dig +short helmsman.example.com` returns its IP. Caddy needs this to get a Let's Encrypt certificate.
+Point a DNS `A` record for `helmsman.vasconsolutionsapp.com` at the server and wait until `dig +short helmsman.vasconsolutionsapp.com` returns its IP. Caddy needs this to get a Let's Encrypt certificate.
 
 ## 2. Give GitHub Actions a way in
 
@@ -34,18 +34,18 @@ On your laptop, make a key used only for deploying Helmsman:
 
 ```bash
 ssh-keygen -t ed25519 -N "" -C "helmsman-deploy" -f helmsman-deploy
-ssh-copy-id -i helmsman-deploy.pub deploy@helmsman.example.com    # or paste the .pub into /home/deploy/.ssh/authorized_keys
-ssh -i helmsman-deploy deploy@helmsman.example.com docker ps      # must work without a password
-ssh-keyscan -p 22 helmsman.example.com > known_hosts.txt          # pins the server's host key
+ssh-copy-id -i helmsman-deploy.pub deploy@helmsman.vasconsolutionsapp.com    # or paste the .pub into /home/deploy/.ssh/authorized_keys
+ssh -i helmsman-deploy deploy@helmsman.vasconsolutionsapp.com docker ps      # must work without a password
+ssh-keyscan -p 22 helmsman.vasconsolutionsapp.com > known_hosts.txt          # pins the server's host key
 ```
 
 ## 3. GitHub: sign-in and runs
 
-1. **OAuth App** (sign-in): https://github.com/organizations/pops-personal-org/settings/applications/new. Homepage `https://helmsman.example.com`. Callback `https://helmsman.example.com/auth/github/callback`. Keep the client ID, and generate a client secret.
+1. **OAuth App** (sign-in): https://github.com/organizations/pops-personal-org/settings/applications/new. Homepage `https://helmsman.vasconsolutionsapp.com`. Callback `https://helmsman.vasconsolutionsapp.com/auth/github/callback`. Keep the client ID, and generate a client secret.
 2. **GitHub App** (migrations and seeds): reuse the one you made for the test. It needs Actions read and write, Contents read, Metadata read, and must be installed on every app repository. Copy its private key to the server:
    ```bash
-   scp github-app.pem deploy@helmsman.example.com:/opt/helmsman-secrets/github-app.pem
-   ssh deploy@helmsman.example.com chmod 600 /opt/helmsman-secrets/github-app.pem
+   scp github-app.pem deploy@helmsman.vasconsolutionsapp.com:/opt/helmsman-secrets/github-app.pem
+   ssh deploy@helmsman.vasconsolutionsapp.com chmod 600 /opt/helmsman-secrets/github-app.pem
    ```
 3. Your numeric GitHub user ID, for the first admin: `gh api users/<your login> --jq .id`.
 
@@ -56,18 +56,18 @@ The workflow deploys `main` to a GitHub Environment named `develop`. Create it a
 ```bash
 R=poppyszn/helmsman
 gh api -X PUT repos/$R/environments/develop >/dev/null
-gh secret set SSH_HOST        --env develop -R $R --body "helmsman.example.com"
+gh secret set SSH_HOST        --env develop -R $R --body "helmsman.vasconsolutionsapp.com"
 gh secret set SSH_USER        --env develop -R $R --body "deploy"
 gh secret set WORKING_DIR     --env develop -R $R --body "/opt/helmsman"
 gh secret set SSH_PRIVATE_KEY --env develop -R $R < helmsman-deploy
 gh secret set SSH_KNOWN_HOSTS --env develop -R $R < known_hosts.txt
-gh variable set HEALTH_URL    --env develop -R $R --body "https://helmsman.example.com/readyz"
+gh variable set HEALTH_URL    --env develop -R $R --body "https://helmsman.vasconsolutionsapp.com/readyz"
 # only if SSH is not on port 22:  gh secret set SSH_PORT --env develop -R $R --body "2222"
 ```
 
 Then delete the private key from your laptop (`shred -u helmsman-deploy` or move it into a password manager).
 
-If the server is an ARM machine, edit `runner: ubuntu-latest` to `ubuntu-24.04-arm` in `.github/workflows/deploy.yml` first.
+The workflow builds on an x86 runner (`runner: ubuntu-latest`), which matches your server.
 
 ## 5. First deploy and bootstrap
 
@@ -85,7 +85,7 @@ The pipeline only restarts the `server` service. Postgres and the others are sta
 
    | Variable | Value |
    |---|---|
-   | `IDP_HOST`, `IDP_BASE_URL` | `helmsman.example.com` and `https://helmsman.example.com` |
+   | `IDP_HOST`, `IDP_BASE_URL` | `helmsman.vasconsolutionsapp.com` and `https://helmsman.vasconsolutionsapp.com` |
    | `CADDY_TLS` | leave empty (Let's Encrypt) |
    | `IDP_SESSION_KEY`, `IDP_ENCRYPTION_KEY` | the two random values |
    | `IDP_ALLOWED_ORGS` | `pops-personal-org` |
@@ -97,21 +97,39 @@ The pipeline only restarts the `server` service. Postgres and the others are sta
 
    Keep `COMPOSE_PROFILES=caddy,backup`. Check it: `bash preflight.sh` prints `preflight: ok`.
 3. **Start the database**: `docker compose --env-file .env up -d postgres`. The first start creates the limited `helmsman_app` role.
-4. **Second run.** Run **Deploy** again. It now passes preflight, pulls the image and starts the server, which migrates the database. The run's last step checks `https://helmsman.example.com/readyz` (Caddy is not up yet, so that check may fail on this one run only; go on to the next step and re-run once).
+4. **Second run.** Run **Deploy** again. It now passes preflight, pulls the image and starts the server, which migrates the database. The run's last step checks `https://helmsman.vasconsolutionsapp.com/readyz` (Caddy is not up yet, so that check may fail on this one run only; go on to the next step and re-run once).
 5. **Start the rest**: Caddy, the bucket and the backup sidecar. They run under the same image tag the pipeline used:
    ```bash
    export IMAGE_TAG=$(cat /opt/helmsman/helmsman.develop.deployed-sha)
    docker compose --env-file .env up -d
    docker compose --env-file .env ps        # everything healthy
    ```
-   Caddy gets its certificate in under a minute. Open `https://helmsman.example.com` and sign in with GitHub.
+   Caddy gets its certificate in under a minute. Open `https://helmsman.vasconsolutionsapp.com` and sign in with GitHub.
 
 From now on a merge to `main` is the whole deploy. The environment's `.env` is never touched by it.
 
-## 6. Add your servers and apps
+## 6. Check the live server with the end-to-end tests
+
+The Playwright suite has a project for a real deployment. From your laptop, in the repository:
+
+```bash
+make e2e-server
+```
+
+This checks, without changing anything: HTTPS and the certificate, the HTTP to HTTPS redirect, the security headers, that the GitHub sign-in redirect uses state and PKCE with the right callback URL, that the API is closed without a session, that an agent cannot connect without a credential, and that another website cannot open a log stream.
+
+To also test the signed-in pages, turn on the break-glass admin (see the runbook), then:
+
+```bash
+E2E_BREAKGLASS_PASSWORD='...' E2E_BREAKGLASS_TOTP_SECRET='...' make e2e-server
+```
+
+That signs in, visits every admin page, checks that the catalog loaded and no agent has an alert, confirms the sign-in was audited, and signs out. It never tries a wrong password, because five failures lock break-glass for 15 minutes. Turn break-glass off again afterwards if you do not want it enabled.
+
+## 7. Add your servers and apps
 
 1. In the UI, **Agents > create agent**, for each host that runs apps. Copy the join token (single use, valid one hour).
-2. On that host, make `agent.yaml` listing only the services to expose (`examples/agent.yaml`), with `idp_url: wss://helmsman.example.com/agent/ws`. Find the project and service names with:
+2. On that host, make `agent.yaml` listing only the services to expose (`examples/agent.yaml`), with `idp_url: wss://helmsman.vasconsolutionsapp.com/agent/ws`. Find the project and service names with:
    ```bash
    docker ps --format '{{.Label "com.docker.compose.project"}} {{.Label "com.docker.compose.service"}}' | sort -u
    ```

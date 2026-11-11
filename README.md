@@ -20,7 +20,7 @@ make up
 
 `make up` also seeds the dev data and starts a real agent. The agent joins within about a minute of the first start. Sign in through the fake GitHub picker (see the runbook for the dev accounts), open **Apps**, then **Demo App**, to see status, tail logs and restart the container. The **runs** tab starts migrations and seeds against the fake GitHub, which paces a run over about 16 seconds. The **deployments** tab lists the deploy workflow runs.
 
-Other targets: `make test`, `make down`, `make logs`, `make build`, `make backup-test` (backup and restore drill), `make up-github` (runs against a real GitHub App). Run `make help` for the list.
+Other targets: `make test`, `make down`, `make logs`, `make build`, `make e2e` (Playwright end-to-end tests), `make e2e-server` (checks of a live deployment), `make backup-test` (backup and restore drill), `make up-github` (runs against a real GitHub App). Run `make help` for the list.
 
 ## Layout
 
