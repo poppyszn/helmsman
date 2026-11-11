@@ -311,7 +311,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
             app={app}
             env={env.env}
             tz={tz}
-            disabledReason={s.blocked.logs || undefined}
+            disabledReason={s.blocked.logs || (s.can_logs ? undefined : "You do not have permission to view logs for this environment.")}
           />
         ) : (
           <div>

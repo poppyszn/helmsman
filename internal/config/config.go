@@ -42,6 +42,12 @@ type Config struct {
 	// GitHubAPIURL. Setting it lets the dev stack sign in through fake-github while
 	// dispatching to the real GitHub.
 	GitHubAppAPIURL string
+	// TrustedProxies are the networks allowed to set X-Forwarded-For (comma separated CIDRs).
+	// Empty means loopback and private ranges. Set it to the proxy address to be stricter.
+	TrustedProxies string
+	// AuthRatePerMinute caps sign-in and agent-join attempts per client address (default 20).
+	// The dev stack raises it so end-to-end tests can sign in many times.
+	AuthRatePerMinute int
 	// GitHub endpoints. Defaults point at github.com; fake mode points at fake-github.
 	GitHubAuthURL  string // browser-facing authorize endpoint
 	GitHubTokenURL string // server-side token endpoint
@@ -83,6 +89,7 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		BreakglassTOTPSecret:   get("IDP_BREAKGLASS_TOTP_SECRET", ""),
 		GitHubAppKeyPath:       get("GITHUB_APP_PRIVATE_KEY_PATH", ""),
 		GitHubAppAPIURL:        strings.TrimRight(get("IDP_GITHUB_APP_API_URL", ""), "/"),
+		TrustedProxies:         get("IDP_TRUSTED_PROXIES", ""),
 		GitHubAuthURL:          get("IDP_GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"),
 		GitHubTokenURL:         get("IDP_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
 		GitHubAPIURL:           strings.TrimRight(get("IDP_GITHUB_API_URL", "https://api.github.com"), "/"),
@@ -99,6 +106,15 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		}
 	}
 	var errs []error
+	c.AuthRatePerMinute = 20
+	if v := get("IDP_AUTH_RATE_PER_MINUTE", ""); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			errs = append(errs, fmt.Errorf("IDP_AUTH_RATE_PER_MINUTE must be a positive number, got %q", v))
+		} else {
+			c.AuthRatePerMinute = n
+		}
+	}
 	if c.BreakglassEnabled && (c.BreakglassPasswordHash == "" || c.BreakglassTOTPSecret == "") {
 		errs = append(errs, fmt.Errorf("IDP_BREAKGLASS_ENABLED needs IDP_BREAKGLASS_PASSWORD_HASH and IDP_BREAKGLASS_TOTP_SECRET (run cmd/breakglass-init)"))
 	}

@@ -1,0 +1,391 @@
+# Vendored verbatim from the dev-pops cicd skill: assets/deploy-workflows/_deploy-pipeline.yml
+# Source of truth is that file — re-copy from there, don't hand-edit here.
+# Deploy pipeline (reusable workflow). Copy to the project's
+# .github/workflows/_deploy-pipeline.yml unchanged, with the two vendored-copy
+# header lines, and call it from the project's own deploy.yml. Never hand-edit
+# the copy: change this file in the skill and re-copy it into every project
+# (references/deploy-pipeline.md), so every repository deploys the same way.
+#
+# One shape for every project and every environment:
+#   build    one image per app, tagged with the commit SHA and latest-<environment>
+#   migrate  (optional) the compose `migrate` service on the host, before any restart
+#   deploy   sync the compose files, pull the SHA-tagged images, up --wait, clean up
+#
+# Develop and production run this same file; the GitHub Environment named by
+# `environment` holds the differences (host, keys, paths).
+
+name: "Reusable: Deploy pipeline"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment to deploy to (develop or production). Also picks docker/<environment>/ unless compose-dir is set.
+        type: string
+        required: true
+      apps:
+        description: JSON list of apps, e.g. '["api","web"]'. Each is one image (ghcr.io/<owner>/<repo>-<app>) and one compose service.
+        type: string
+        required: true
+      dockerfile:
+        description: Dockerfile path; {app} is replaced with each app's name. A single-app repository uses "Dockerfile".
+        type: string
+        default: apps/{app}/Dockerfile
+      build-context:
+        description: Docker build context.
+        type: string
+        default: .
+      build-target:
+        description: Dockerfile stage to build. Empty builds the last stage.
+        type: string
+        default: ""
+      runner:
+        description: Runner image for the build job (e.g. ubuntu-24.04-arm, ubuntu-latest, or JSON array of runners).
+        type: string
+        default: ubuntu-24.04-arm
+      migrate:
+        description: Run the compose `migrate` service on the host before the apps restart.
+        type: boolean
+        default: false
+      compose-dir:
+        description: Folder (relative to the repository) holding compose.yml and the host's .env. Empty means docker/<environment>.
+        type: string
+        default: ""
+      commit-sha:
+        description: Commit to build and deploy. Empty means the commit that triggered the run.
+        type: string
+        default: ""
+
+# A called workflow can only narrow what the caller grants; the caller's job
+# must grant packages: write for the build.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }} (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        app: ${{ fromJson(inputs.apps) }}
+        runner: ${{ fromJson(startsWith(inputs.runner, '[') && inputs.runner || format('["{0}"]', inputs.runner || 'ubuntu-24.04-arm')) }}
+    steps:
+      # The github context in a called workflow belongs to the caller, so this
+      # checks out the project being deployed.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit-sha || github.sha }}
+
+      # GHCR paths must be lowercase; github.repository keeps the owner's case.
+      - name: Image name and Dockerfile
+        env:
+          REPO: ${{ github.repository }}
+          APP: ${{ matrix.app }}
+          DOCKERFILE_PATTERN: ${{ inputs.dockerfile }}
+        run: |
+          set -euo pipefail
+          echo "IMAGE=ghcr.io/${REPO,,}-${APP}" >> "$GITHUB_ENV"
+          echo "DOCKERFILE=${DOCKERFILE_PATTERN//\{app\}/$APP}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # One cache scope per environment and app: a shared scope is overwritten
+      # by whichever image exports last.
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.build-context }}
+          file: ${{ env.DOCKERFILE }}
+          target: ${{ inputs.build-target }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ inputs.commit-sha || github.sha }}
+            ${{ env.IMAGE }}:latest-${{ inputs.environment }}
+          cache-from: type=gha,scope=${{ inputs.environment }}-${{ matrix.app }}-${{ matrix.runner }}
+          cache-to: type=gha,scope=${{ inputs.environment }}-${{ matrix.app }}-${{ matrix.runner }},mode=max
+
+  migrate:
+    name: Migrate
+    needs: build
+    if: ${{ inputs.migrate }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      COMPOSE_DIR: ${{ inputs.compose-dir || format('docker/{0}', inputs.environment) }}
+      DEPLOY_SHA: ${{ inputs.commit-sha || github.sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_ACTOR: ${{ github.actor }}
+      REPO: ${{ github.repository }}
+      WORKING_DIR: ${{ secrets.WORKING_DIR }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      # || '22': an unset secret is an empty string, and `ssh -p ''` fails.
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+      SSH_JUMP_HOST: ${{ secrets.SSH_JUMP_HOST }}
+      SSH_USER_JUMP: ${{ secrets.SSH_USER_JUMP }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+    steps:
+      # A secret the caller does not pass resolves to an empty string with no
+      # error, so check every one this job needs before touching the host.
+      - name: Check required secrets
+        env:
+          HAS_SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+          HAS_SSH_USER: ${{ secrets.SSH_USER != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ "$HAS_SSH_USER" = true ] || missing="$missing SSH_USER"
+          [ "$HAS_SSH_PRIVATE_KEY" = true ] || missing="$missing SSH_PRIVATE_KEY"
+          [ -n "$SSH_KNOWN_HOSTS" ] || missing="$missing SSH_KNOWN_HOSTS"
+          [ -n "$WORKING_DIR" ] || missing="$missing WORKING_DIR"
+          if [ -n "$missing" ]; then
+            echo "Missing in the '$ENVIRONMENT' environment (or not passed by the caller):$missing" >&2
+            echo "The caller's job needs 'secrets: inherit'." >&2
+            exit 1
+          fi
+
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Host keys are pinned: SSH_KNOWN_HOSTS holds `ssh-keyscan -p <port> <host>`
+      # output (and the bastion's, if one is used), and checking is strict.
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          {
+            echo "Host ${SSH_HOST}"
+            echo "  StrictHostKeyChecking yes"
+            if [ -n "$SSH_JUMP_HOST" ]; then
+              echo "  ProxyJump ${SSH_USER_JUMP}@${SSH_JUMP_HOST}"
+            fi
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      # init + fetch, not clone: a clone refuses a directory that already holds
+      # files (the host's .env). The token is passed for this one command and
+      # never written to .git/config.
+      - name: Sync repository to the deployed commit
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_TARGET" \
+            GH_TOKEN="$(printf '%q' "$GH_TOKEN")" \
+            WORKING_DIR="$(printf '%q' "$WORKING_DIR")" \
+            REPO="$(printf '%q' "$REPO")" \
+            DEPLOY_SHA="$(printf '%q' "$DEPLOY_SHA")" \
+            COMPOSE_DIR="$(printf '%q' "$COMPOSE_DIR")" \
+            'bash -s' << 'EOF'
+          set -euo pipefail
+          REPO_DIR="${WORKING_DIR}/${REPO##*/}"
+          mkdir -p "$REPO_DIR"
+          cd "$REPO_DIR"
+          [ -d .git ] || git init -q
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "https://github.com/${REPO}.git"
+          AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.extraheader=AUTHORIZATION: basic ${AUTH}" fetch --depth 1 origin "$DEPLOY_SHA"
+          git reset --hard FETCH_HEAD
+          # git clean removes untracked files that are not ignored, which would
+          # include the host's .env.
+          if ! git check-ignore -q "${COMPOSE_DIR}/.env"; then
+            echo "${COMPOSE_DIR}/.env must be listed in .gitignore: git clean would delete it." >&2
+            exit 1
+          fi
+          git clean -fd
+          EOF
+
+      # Migrations run while the old apps still serve traffic, so they must stay
+      # compatible with them (add first, remove later). A failure stops the
+      # pipeline here, before any app restarts.
+      - name: Run migrations
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_TARGET" \
+            GH_TOKEN="$(printf '%q' "$GH_TOKEN")" \
+            GH_ACTOR="$(printf '%q' "$GH_ACTOR")" \
+            WORKING_DIR="$(printf '%q' "$WORKING_DIR")" \
+            REPO="$(printf '%q' "$REPO")" \
+            DEPLOY_SHA="$(printf '%q' "$DEPLOY_SHA")" \
+            COMPOSE_DIR="$(printf '%q' "$COMPOSE_DIR")" \
+            'bash -s' << 'EOF'
+          set -euo pipefail
+          cd "${WORKING_DIR}/${REPO##*/}/${COMPOSE_DIR}"
+          export IMAGE_TAG="$DEPLOY_SHA"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          # Log out however this ends: the registry login must not outlive the job.
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker compose --env-file .env pull migrate
+          # < /dev/null: `docker compose run` reads stdin, and this script is the
+          # stdin. Without it the container swallows the rest of the heredoc.
+          docker compose --env-file .env run --rm migrate < /dev/null
+          EOF
+
+  deploy:
+    name: Deploy
+    needs: [build, migrate]
+    # migrate is skipped when the project does not migrate; accept skipped,
+    # stop on any failure.
+    if: ${{ !cancelled() && needs.build.result == 'success' && contains(fromJson('["success","skipped"]'), needs.migrate.result) }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      COMPOSE_DIR: ${{ inputs.compose-dir || format('docker/{0}', inputs.environment) }}
+      DEPLOY_SHA: ${{ inputs.commit-sha || github.sha }}
+      DEPLOY_APPS: ${{ join(fromJson(inputs.apps), ' ') }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_ACTOR: ${{ github.actor }}
+      REPO: ${{ github.repository }}
+      WORKING_DIR: ${{ secrets.WORKING_DIR }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+      SSH_JUMP_HOST: ${{ secrets.SSH_JUMP_HOST }}
+      SSH_USER_JUMP: ${{ secrets.SSH_USER_JUMP }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      # Optional environment variable: a URL that must answer 2xx after the deploy.
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+    steps:
+      - name: Check required secrets
+        env:
+          HAS_SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+          HAS_SSH_USER: ${{ secrets.SSH_USER != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ "$HAS_SSH_USER" = true ] || missing="$missing SSH_USER"
+          [ "$HAS_SSH_PRIVATE_KEY" = true ] || missing="$missing SSH_PRIVATE_KEY"
+          [ -n "$SSH_KNOWN_HOSTS" ] || missing="$missing SSH_KNOWN_HOSTS"
+          [ -n "$WORKING_DIR" ] || missing="$missing WORKING_DIR"
+          if [ -n "$missing" ]; then
+            echo "Missing in the '$ENVIRONMENT' environment (or not passed by the caller):$missing" >&2
+            echo "The caller's job needs 'secrets: inherit'." >&2
+            exit 1
+          fi
+
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          {
+            echo "Host ${SSH_HOST}"
+            echo "  StrictHostKeyChecking yes"
+            if [ -n "$SSH_JUMP_HOST" ]; then
+              echo "  ProxyJump ${SSH_USER_JUMP}@${SSH_JUMP_HOST}"
+            fi
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      # Same sync as the migrate job; running it again is harmless and keeps
+      # this job correct when the project does not migrate.
+      - name: Sync repository to the deployed commit
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_TARGET" \
+            GH_TOKEN="$(printf '%q' "$GH_TOKEN")" \
+            WORKING_DIR="$(printf '%q' "$WORKING_DIR")" \
+            REPO="$(printf '%q' "$REPO")" \
+            DEPLOY_SHA="$(printf '%q' "$DEPLOY_SHA")" \
+            COMPOSE_DIR="$(printf '%q' "$COMPOSE_DIR")" \
+            'bash -s' << 'EOF'
+          set -euo pipefail
+          REPO_DIR="${WORKING_DIR}/${REPO##*/}"
+          mkdir -p "$REPO_DIR"
+          cd "$REPO_DIR"
+          [ -d .git ] || git init -q
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "https://github.com/${REPO}.git"
+          AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.extraheader=AUTHORIZATION: basic ${AUTH}" fetch --depth 1 origin "$DEPLOY_SHA"
+          git reset --hard FETCH_HEAD
+          if ! git check-ignore -q "${COMPOSE_DIR}/.env"; then
+            echo "${COMPOSE_DIR}/.env must be listed in .gitignore: git clean would delete it." >&2
+            exit 1
+          fi
+          git clean -fd
+          EOF
+
+      - name: Pull images and start containers
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_TARGET" \
+            GH_TOKEN="$(printf '%q' "$GH_TOKEN")" \
+            GH_ACTOR="$(printf '%q' "$GH_ACTOR")" \
+            WORKING_DIR="$(printf '%q' "$WORKING_DIR")" \
+            REPO="$(printf '%q' "$REPO")" \
+            DEPLOY_SHA="$(printf '%q' "$DEPLOY_SHA")" \
+            DEPLOY_APPS="$(printf '%q' "$DEPLOY_APPS")" \
+            COMPOSE_DIR="$(printf '%q' "$COMPOSE_DIR")" \
+            ENVIRONMENT="$(printf '%q' "$ENVIRONMENT")" \
+            'bash -s' << 'EOF'
+          set -euo pipefail
+          cd "${WORKING_DIR}/${REPO##*/}/${COMPOSE_DIR}"
+          # The compose file runs ghcr.io/<owner>/<repo>-<app>:${IMAGE_TAG}.
+          export IMAGE_TAG="$DEPLOY_SHA"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          # A project may keep a preflight check of the host .env next to its compose file.
+          if [ -f preflight.sh ]; then
+            bash ./preflight.sh "$DEPLOY_APPS"
+          fi
+          # shellcheck disable=SC2086 # DEPLOY_APPS is a space-separated list of services
+          docker compose --env-file .env pull $DEPLOY_APPS
+          # shellcheck disable=SC2086
+          if ! docker compose --env-file .env up -d --wait --wait-timeout 120 --no-deps $DEPLOY_APPS; then
+            docker compose --env-file .env ps -a
+            for app in $DEPLOY_APPS; do
+              echo "--- $app ---"
+              docker compose --env-file .env logs --tail 50 "$app" || true
+            done
+            exit 1
+          fi
+          # Recorded outside the repository (git clean would remove it), so the
+          # run-service workflow can run seeds against exactly this build.
+          echo "$DEPLOY_SHA" > "${WORKING_DIR}/${REPO##*/}.${ENVIRONMENT}.deployed-sha"
+          EOF
+
+      - name: Smoke test
+        if: ${{ env.HEALTH_URL != '' }}
+        run: curl -fsS --retry 6 --retry-delay 5 --retry-connrefused -o /dev/null "$HEALTH_URL"
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_TARGET" 'bash -s' << 'EOF'
+          set -uo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          docker image prune -a -f --filter "until=168h" || true
+          docker builder prune -f --filter "until=336h" || true
+          docker container prune -f --filter "until=168h" || true
+          docker system df
+          EOF

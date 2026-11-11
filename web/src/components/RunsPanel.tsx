@@ -112,7 +112,7 @@ function RunRow({ run, base, tz, onChanged }: { run: Run; base: string; tz: stri
   });
 
   return (
-    <div className="rounded-xl bg-[#0a0a0d]">
+    <div className="rounded-xl bg-[#0a0a0d]" data-run-id={run.id}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <button onClick={() => setOpen(!open)} className="flex items-center gap-3 text-left cursor-pointer min-w-0" aria-expanded={open}>
           {open ? <ChevronDown className="size-4 text-zinc-500" strokeWidth={1.5} /> : <ChevronRight className="size-4 text-zinc-500" strokeWidth={1.5} />}

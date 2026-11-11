@@ -88,38 +88,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The server compose file reads ../.env. CI has none, so an empty one stands in.
+      - run: touch .env
       - run: docker compose -f deploy/compose.dev.yml config -q
       - run: docker compose -f deploy/compose.agent.yml config -q
         env:
           DOCKER_GID: "999"
           AGENT_VERSION: latest
-      - name: Server compose resolves with its required variables
-        run: docker compose -f deploy/compose.server.yml config -q
+      - name: Server compose resolves, with every optional profile on
+        run: |
+          touch deploy/server/.env
+          docker compose -f deploy/server/compose.yml config -q
         env:
-          IDP_IMAGE: ghcr.io/poppyszn/helmsman-server@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          COMPOSE_PROFILES: caddy,backup
+          IMAGE_TAG: ci
           POSTGRES_PASSWORD: ci
           APP_DB_PASSWORD: ci
-          CATALOG_DIR: /tmp
-          GITHUB_APP_KEY_FILE: /tmp/key.pem
-      - name: Pilot overlay resolves
-        run: docker compose -f deploy/compose.server.yml -f deploy/compose.pilot.yml config -q
-        env:
-          IDP_IMAGE: ghcr.io/poppyszn/helmsman-server@sha256:0000000000000000000000000000000000000000000000000000000000000000
-          POSTGRES_PASSWORD: ci
-          APP_DB_PASSWORD: ci
-          CATALOG_DIR: /tmp
           GITHUB_APP_KEY_FILE: /tmp/key.pem
           IDP_HOST: idp.ci.test
-      - name: Server compose pins images by digest
+      - name: Third party images in the server compose are pinned by digest
         run: |
-          if grep -nE '^\s+image:' deploy/compose.server.yml deploy/compose.pilot.yml | grep -v '@sha256:' | grep -v 'IDP_IMAGE'; then
-            echo "an image in the server or pilot compose file is not pinned by digest" >&2; exit 1
+          if grep -nE '^\s+image:' deploy/server/compose.yml | grep -v '@sha256:' | grep -v 'helmsman-server'; then
+            echo "an image in deploy/server/compose.yml is not pinned by digest" >&2; exit 1
           fi
+      - name: Host preflight rejects an empty environment
+        run: |
+          cd deploy/server
+          : > .env
+          if bash preflight.sh; then echo "preflight accepted an empty .env" >&2; exit 1; fi
       - name: Shell scripts parse
-        run: for f in deploy/backup/*.sh deploy/db/*.sh; do bash -n "$f"; done
+        run: for f in deploy/backup/*.sh deploy/server/db/*.sh deploy/server/preflight.sh; do bash -n "$f"; done
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: deploy
+          # The dev image runs as root on purpose (hot reload over a bind mount). It is never deployed.
+          skip-files: deploy/docker/server.dev.Dockerfile
           severity: HIGH,CRITICAL
           exit-code: "1"
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start the dev stack
+        run: make up
+      - name: Playwright end-to-end tests
+        run: make e2e
+      - name: Dev stack logs
+        if: failure()
+        run: docker compose -f deploy/compose.dev.yml logs --tail 200
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7

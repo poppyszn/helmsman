@@ -55,6 +55,8 @@ services:
       IDP_GITHUB_TOKEN_URL: http://fake-github:8090/login/oauth/access_token
       IDP_GITHUB_API_URL: http://fake-github:8090
       IDP_DISPLAY_TZ: ${IDP_DISPLAY_TZ:-Africa/Lagos}
+      # End-to-end tests sign in many times from one address.
+      IDP_AUTH_RATE_PER_MINUTE: "300"
     ports: ["127.0.0.1:8080:8080"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]

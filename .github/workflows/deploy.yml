@@ -1,0 +1,79 @@
+# Helmsman's own deploy pipeline: a light pre-deploy check, then the standard deploy pipeline.
+# See docs/server-setup.md for the host and GitHub Environment setup.
+#
+# One file for both environments. A push to main deploys to the `develop` GitHub Environment (the
+# live dev server). A push to the `production` branch deploys to the `production` one. Helmsman
+# uses trunk based development, so main takes the place of a separate develop branch.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, production]
+    # Not .github/**: a push that only changes this pipeline must still deploy.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Commit to deploy (empty for the branch's latest). Re-deploying an older commit is a rollback.
+        type: string
+        required: false
+
+# packages: write is what the pipeline's build job needs to push images; a called
+# workflow can only narrow what this grants.
+permissions:
+  contents: read
+  packages: write
+
+# One deploy per environment at a time, and never cancel one halfway: a
+# cancelled deploy can leave the host between two releases.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify
+    # Only the two deploy branches have environments; a manual run from any
+    # other branch would otherwise create a stray environment.
+    if: ${{ contains(fromJson('["main","production"]'), github.ref_name) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # The light gate before a deploy. The full test suite runs on the pull request.
+      - run: go vet ./...
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+
+  deploy:
+    name: Deploy
+    needs: verify
+    uses: ./.github/workflows/_deploy-pipeline.yml
+    with:
+      # main deploys to develop; the production branch deploys to production.
+      environment: ${{ github.ref_name == 'main' && 'develop' || github.ref_name }}
+      apps: '["server"]'
+      dockerfile: deploy/docker/{app}.Dockerfile
+      compose-dir: deploy/server
+      # Change to ubuntu-24.04-arm if the host is an ARM machine.
+      runner: ubuntu-latest
+      migrate: false
+      commit-sha: ${{ inputs.commit_sha }}
+    secrets: inherit

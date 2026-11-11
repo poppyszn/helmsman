@@ -43,7 +43,7 @@ func newFakeDocker(t *testing.T) (*fakeDocker, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	sock := filepath.Join(dir, "d.sock")
 	fd := &fakeDocker{id: "c1", started: time.Now().Add(-time.Hour).UTC(), logs: map[string][]string{"c1": {"hello from docker", "second line"}},
 		subs: map[string][]chan string{}, ends: map[string][]chan struct{}{}, events: make(chan string, 16), logDriver: "json-file"}
@@ -92,8 +92,8 @@ func newFakeDocker(t *testing.T) (*fakeDocker, string) {
 		t.Fatal(err)
 	}
 	fd.srv = &http.Server{Handler: mux}
-	go fd.srv.Serve(l)
-	t.Cleanup(func() { fd.srv.Close() })
+	go func() { _ = fd.srv.Serve(l) }()
+	t.Cleanup(func() { _ = fd.srv.Close() })
 	return fd, sock
 }
 

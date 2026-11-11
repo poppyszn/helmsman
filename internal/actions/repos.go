@@ -130,23 +130,47 @@ func (s *Service) CheckAll(ctx context.Context) []RepoCheck {
 	return s.Checks()
 }
 
-// WatchRepos validates on startup and then every interval. While any repository is failing it
-// retries every minute, so a GitHub outage at startup or a freshly installed App is picked up
-// without waiting for the full interval.
+// WatchRepos validates on startup and then keeps the results fresh:
+//   - a repository that appears in the catalog (a reload after startup, or an agent registered late) is
+//     checked within 30 seconds, not at the next full round
+//   - every repository is rechecked every interval, or every minute while any is failing, so a GitHub
+//     outage at startup or a freshly installed App is picked up without waiting
 func (s *Service) WatchRepos(ctx context.Context, every time.Duration) {
+	const poll = 30 * time.Second
+	var last time.Time
 	for {
 		wait := every
-		for _, c := range s.CheckAll(ctx) {
+		for _, c := range s.Checks() {
 			if c.Problem != "" {
 				wait = min(every, time.Minute)
 			}
 		}
+		if last.IsZero() || time.Since(last) >= wait || s.hasUncheckedRepo(ctx) {
+			s.CheckAll(ctx)
+			last = time.Now()
+		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(wait):
+		case <-time.After(poll):
 		}
 	}
+}
+
+// hasUncheckedRepo reports whether the catalog names a repository that has no result yet.
+func (s *Service) hasUncheckedRepo(ctx context.Context) bool {
+	apps, err := s.Store.ListApps(ctx)
+	if err != nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, a := range apps {
+		if _, ok := s.checks[a.Repo]; !ok {
+			return true
+		}
+	}
+	return false
 }
 
 func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }

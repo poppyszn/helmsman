@@ -8,7 +8,7 @@
 set -euo pipefail
 
 src="${1:?usage: restore.sh <dump file | s3:// url> [target database]}"
-COMPOSE_FILE="${COMPOSE_FILE:-deploy/compose.server.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-deploy/server/compose.yml}"
 PG_SERVICE="${PG_SERVICE:-postgres}"
 PG_USER="${PG_USER:-helmsman}"
 PG_DB="${PG_DB:-helmsman}"
