@@ -1,0 +1,50 @@
+# Local Loki: single process, files on disk, 14 days of retention. Generated from deploy/loki/loki.yaml.
+# Change limits_config.retention_period to keep logs longer (and give the disk room for it).
+# Loki as a single process with local disk storage: enough for a few hosts and 14 days of logs.
+# Nothing outside the compose network reaches it directly. Helmsman and Grafana read it, Alloy
+# writes to it (through Caddy with basic auth when the writers are on other hosts).
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2024-04-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 336h          # 14 days
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  max_entries_limit_per_query: 5000
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+analytics:
+  reporting_enabled: false

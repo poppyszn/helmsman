@@ -1,0 +1,78 @@
+// CUSTOM APP LOGS: an example of extending the collector for an app that prints one JSON object per line,
+// such as {"level":"warn","msg":"retrying","time":"..."}. It takes the level from the JSON field instead of
+// guessing from words, and keeps the line itself unchanged. It is complete and runnable on its own.
+// Copy the loki.process block into deploy/alloy/collector.alloy (before the classify stage) to use it there.
+//
+//   LOKI_URL, LOKI_USER, LOKI_PASSWORD   where to send (as in write.alloy)
+//   LOG_PROJECTS    regex of compose projects to collect
+//   HOST_NAME       the agent id of this host
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+  rule {
+    source_labels = ["compose_project"]
+    regex         = coalesce(sys.env("LOG_PROJECTS"), ".+")
+    action        = "keep"
+  }
+  rule {
+    target_label = "source"
+    replacement  = "container"
+  }
+  rule {
+    target_label = "host"
+    replacement  = coalesce(sys.env("HOST_NAME"), constants.hostname)
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.json_app.receiver]
+}
+
+loki.process "json_app" {
+  stage.static_labels {
+    values = {
+      kind  = "app",
+      level = "info",
+    }
+  }
+
+  // Read "level" from the JSON line. If the line is not JSON, the stage does nothing and the defaults stay.
+  stage.json {
+    expressions = { json_level = "level" }
+  }
+  // Map the app's words onto Helmsman's four levels.
+  stage.template {
+    source   = "level"
+    template = `{{ if or (eq .json_level "error") (eq .json_level "fatal") (eq .json_level "panic") (eq .json_level "critical") }}error{{ else if or (eq .json_level "warn") (eq .json_level "warning") }}warn{{ else if or (eq .json_level "debug") (eq .json_level "trace") }}debug{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = coalesce(sys.env("LOKI_URL"), "http://loki:3100/loki/api/v1/push")
+    basic_auth {
+      username = coalesce(sys.env("LOKI_USER"), "")
+      password = coalesce(sys.env("LOKI_PASSWORD"), "")
+    }
+  }
+}
