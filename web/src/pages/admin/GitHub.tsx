@@ -4,7 +4,7 @@ import { api, formatTime, useMe, type RepoCheck } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 
-type Resp = { mode: string; repos: RepoCheck[] };
+type Resp = { mode: string; api_url: string; repos: RepoCheck[] };
 
 function Mark({ ok }: { ok: boolean }) {
   return ok ? (
@@ -31,7 +31,7 @@ export default function GitHub() {
           <h1 className="text-2xl font-bold tracking-tight text-white">GitHub</h1>
           <p className="mt-1 text-sm text-zinc-400">
             The GitHub App must be installed on each repository, and its migrate workflow needs a workflow_dispatch trigger. A repository that fails these checks has its actions disabled.
-            {q.data?.mode === "fake" ? " Running against the development fake." : ""}
+            {q.data?.api_url ? ` Runs are sent to ${q.data.api_url}.` : ""}
           </p>
         </div>
         <Button variant="secondary" onClick={() => check.mutate()} disabled={check.isPending}>

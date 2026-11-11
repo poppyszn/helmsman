@@ -210,14 +210,14 @@ func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGitHubStatus(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "repos": s.Actions.Checks()})
+	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "api_url": s.Cfg.GitHubAppAPIURL, "repos": s.Actions.Checks()})
 }
 
 func (s *Server) handleGitHubCheck(w http.ResponseWriter, r *http.Request) {
 	checks := s.Actions.CheckAll(r.Context())
 	c := rc(r)
 	_ = s.Audit.Write(r.Context(), auditEvent(c.User.Login, "github.check", "github", auth.ClientIP(r), map[string]any{"repos": len(checks)}))
-	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "repos": checks})
+	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "api_url": s.Cfg.GitHubAppAPIURL, "repos": checks})
 }
 
 func auditEvent(actor, action, target, ip string, d map[string]any) audit.Event {
