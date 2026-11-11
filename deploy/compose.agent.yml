@@ -1,6 +1,6 @@
 services:
   idp-agent:
-    image: ghcr.io/<org>/helmsman-agent:${AGENT_VERSION}
+    image: ghcr.io/poppyszn/helmsman-agent:${AGENT_VERSION}
     restart: unless-stopped
     environment:
       IDP_JOIN_TOKEN: ${IDP_JOIN_TOKEN:-}

@@ -1,4 +1,4 @@
-module github.com/helmsman-idp/helmsman
+module github.com/poppyszn/helmsman
 
 go 1.26.0
 

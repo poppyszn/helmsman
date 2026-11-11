@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/helmsman-idp/helmsman/internal/api"
-	"github.com/helmsman-idp/helmsman/internal/config"
-	"github.com/helmsman-idp/helmsman/internal/store"
-	"github.com/helmsman-idp/helmsman/web"
+	"github.com/poppyszn/helmsman/internal/api"
+	"github.com/poppyszn/helmsman/internal/config"
+	"github.com/poppyszn/helmsman/internal/store"
+	"github.com/poppyszn/helmsman/web"
 )
 
 func main() {
