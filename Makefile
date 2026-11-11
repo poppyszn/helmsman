@@ -65,3 +65,6 @@ e2e-server: ## Playwright checks of a real deployment. E2E_SERVER_URL, E2E_BREAK
 seed-dev: ## Seed the dev agent, users and role bindings
 	$(COMPOSE_DEV) exec -T postgres psql -U helmsman -d helmsman -v ON_ERROR_STOP=1 < deploy/seed-dev.sql
 	@echo "Seeded. Sign in as alice (admin), bob (developer), carol (viewer), erin (approver). The agent joins within a minute."
+
+server-bundle: ## Zip the files a server needs, for copying by hand (see docs/server-setup.md)
+	bash deploy/server/bundle.sh
