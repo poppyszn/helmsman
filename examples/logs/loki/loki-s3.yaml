@@ -1,0 +1,53 @@
+# Loki keeping its data in S3 (or any S3 compatible store) instead of local disk. Use it when the logs should
+# survive losing the machine, or when you want months of history. Run Loki with:
+#   loki -config.file=loki-s3.yaml -config.expand-env=true
+# and set S3_ENDPOINT (leave out for AWS), S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    s3:
+      endpoint: ${S3_ENDPOINT:-s3.amazonaws.com}
+      region: ${S3_REGION:-us-east-1}
+      bucketnames: ${S3_BUCKET:-loki}
+      access_key_id: ${S3_ACCESS_KEY:-}
+      secret_access_key: ${S3_SECRET_KEY:-}
+      s3forcepathstyle: true
+
+schema_config:
+  configs:
+    - from: "2024-04-01"
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 2160h         # 90 days
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  max_entries_limit_per_query: 5000
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: s3
+
+analytics:
+  reporting_enabled: false

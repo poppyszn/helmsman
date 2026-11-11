@@ -123,9 +123,20 @@ jobs:
             docker run --rm -v "$PWD/deploy/alloy":/c grafana/alloy:v1.21.3 fmt "/c/$f.alloy" > /dev/null
           done
           docker run --rm -v "$PWD/deploy/loki":/c grafana/loki:3.7.9 -config.file=/c/loki.yaml -verify-config
+      - name: Log samples are valid and current
+        run: |
+          sh examples/logs/build-all-in-one.sh
+          git diff --exit-code examples/logs || { echo "examples/logs is out of date: run examples/logs/build-all-in-one.sh" >&2; exit 1; }
+          for f in examples/logs/alloy/*.alloy; do
+            docker run --rm -v "$PWD/examples/logs/alloy":/c grafana/alloy:v1.21.3 fmt "/c/$(basename "$f")" > /dev/null
+          done
+          for f in loki-local loki-s3; do
+            docker run --rm -e S3_BUCKET=ci -v "$PWD/examples/logs/loki":/c grafana/loki:3.7.9 -config.file="/c/$f.yaml" -config.expand-env=true -verify-config
+          done
+          DOCKER_GID=999 GRAFANA_ADMIN_PASSWORD=ci docker compose -f examples/logs/compose/standalone.yml --profile alerts config -q
       - name: Third party images in the server compose are pinned by digest
         run: |
-          if grep -nE '^\s+image:' deploy/server/compose.yml deploy/compose.alloy.yml | grep -v '@sha256:' | grep -v 'helmsman-server'; then
+          if grep -nE '^\s+image:' deploy/server/compose.yml deploy/compose.alloy.yml examples/logs/compose/standalone.yml | grep -v '@sha256:' | grep -v 'helmsman-server'; then
             echo "an image in the server or Alloy compose file is not pinned by digest" >&2; exit 1
           fi
       - name: Host preflight rejects an empty environment

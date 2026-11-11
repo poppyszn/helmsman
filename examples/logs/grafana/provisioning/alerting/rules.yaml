@@ -1,0 +1,94 @@
+# Three alert rules for the labels Helmsman's pipeline sets. Each counts lines over the last 5 minutes and
+# fires above a threshold. Edit the label values (service, app, env) and thresholds to match your apps, then add
+# a contact point in Grafana (Alerting > Contact points) so the alert reaches someone.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: helmsman-logs
+    folder: Helmsman
+    interval: 1m
+    rules:
+      - uid: container-errors
+        title: Container errors
+        # Change compose_service to the service you care about, or drop it to cover every container.
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: More than 10 error lines in 5 minutes
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: sum(count_over_time({source="container", level="error", compose_service="api"}[5m]))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions: [{ evaluator: { type: gt, params: [10] } }]
+              datasource: { type: __expr__, uid: __expr__ }
+
+      - uid: static-site-5xx
+        title: Static site returning 5xx
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: nginx answered 5xx more than 5 times in 5 minutes
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: sum(count_over_time({source="container", kind="access", level="error", compose_service="web"}[5m]))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions: [{ evaluator: { type: gt, params: [5] } }]
+              datasource: { type: __expr__, uid: __expr__ }
+
+      - uid: browser-exceptions
+        title: Browser exceptions in prod
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: A browser reported an uncaught error in prod
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: sum(count_over_time({source="browser", kind="exception", app="billing-web", env="prod"}[5m]))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+              datasource: { type: __expr__, uid: __expr__ }

@@ -13,6 +13,8 @@ Both are in the **logs** tab, switched with **live tail | history**. History is 
  browser ─ Grafana Faro ─> Caddy /faro ─> Alloy ─┘                 └─ Grafana (alerts, optional)
 ```
 
+Ready-to-copy configuration (Alloy for containers and Faro, Loki local and S3, a standalone compose with Grafana, Faro page and bundler setups, an nginx config) is in [`examples/logs`](../examples/logs/README.md).
+
 ## Two sources, and how to tell them apart
 
 A static web app is two things at once. Its nginx container writes an **access line for every request**. Its pages, running in browsers, report their own **console messages, errors and events** through Grafana Faro. Those are different logs about the same app, so every line carries labels that say which it is:

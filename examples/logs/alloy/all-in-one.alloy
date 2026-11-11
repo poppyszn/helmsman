@@ -1,0 +1,225 @@
+// ALL IN ONE: container logs and the Faro receiver in one file, for a single machine that runs both your
+// containers and the Faro endpoint. Run with:  alloy run all-in-one.alloy
+//
+// Generated from deploy/alloy (write collector faro). Do not edit here: edit those files and run
+// examples/logs/build-all-in-one.sh. Settings come from environment variables, described in each part.
+
+// ---------------------------------------------------------------- write.alloy
+// Where every Alloy pipeline in this folder sends its logs.
+//   LOKI_URL        e.g. http://loki:3100/loki/api/v1/push
+//   LOKI_USER, LOKI_PASSWORD   basic auth when Loki is behind Caddy (leave empty inside the compose network)
+loki.write "default" {
+  endpoint {
+    url = coalesce(sys.env("LOKI_URL"), "http://loki:3100/loki/api/v1/push")
+    basic_auth {
+      username = coalesce(sys.env("LOKI_USER"), "")
+      password = coalesce(sys.env("LOKI_PASSWORD"), "")
+    }
+  }
+}
+
+// ---------------------------------------------------------------- collector.alloy
+// Collects the logs of Docker containers on this host and sends them to Loki.
+//
+// Every stream gets these labels, and only these, so Loki stays cheap and Helmsman can filter:
+//   source           container
+//   compose_project  the compose project (matches container.compose_project in the catalog)
+//   compose_service  the compose service (matches container.service in the catalog)
+//   kind             what sort of line it is: access | error | app
+//   level            error | warn | info | debug
+//
+// Settings come from the environment:
+//   LOKI_URL        e.g. http://loki:3100/loki/api/v1/push
+//   LOKI_USER, LOKI_PASSWORD   basic auth when Loki is behind Caddy (leave empty inside the compose network)
+//   LOG_PROJECTS    regex of compose projects to collect (default: all). Set it to the projects the
+//                   agent allowlist names so no other container's logs leave the host.
+//   HOST_NAME       a name for this host, added as the "host" label
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+  // Only containers that belong to a compose project, and only the ones this host may ship.
+  rule {
+    source_labels = ["compose_service"]
+    regex         = ""
+    action        = "drop"
+  }
+  rule {
+    source_labels = ["compose_project"]
+    regex         = coalesce(sys.env("LOG_PROJECTS"), ".+")
+    action        = "keep"
+  }
+  rule {
+    target_label = "source"
+    replacement  = "container"
+  }
+  rule {
+    target_label = "host"
+    replacement  = coalesce(sys.env("HOST_NAME"), constants.hostname)
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.classify.receiver]
+}
+
+// Tell the kinds of line apart. A static web container (nginx) writes access lines and error lines
+// to the same stream; an app writes its own messages. The defaults come first and the matches below
+// overwrite them, so every line ends up with exactly one kind and one level.
+loki.process "classify" {
+  stage.static_labels {
+    values = {
+      kind  = "app",
+      level = "info",
+    }
+  }
+
+  // Application lines: pick the level from the usual words.
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"(?i)\\\\b(error|fatal|panic|exception)\\\\b\""
+    stage.static_labels {
+      values = { level = "error" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"(?i)\\\\bwarn(ing)?\\\\b\""
+    stage.static_labels {
+      values = { level = "warn" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"(?i)\\\\bdebug\\\\b\""
+    stage.static_labels {
+      values = { level = "debug" }
+    }
+  }
+
+  // nginx access lines, in the default "combined" format or as JSON with a status field.
+  // The level comes from the status code, never as a label of its own (that would be too many streams).
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"^\\\\S+ \\\\S+ \\\\S+ \\\\[[^\\\\]]+\\\\] \\\"[A-Z]+ [^\\\"]*\\\" [0-9]{3} \""
+    stage.static_labels {
+      values = { kind = "access", level = "info" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"^\\\\{.*\\\"(status|response_code)\\\":\\\\s*\\\"?[0-9]{3}\\\"?.*\\\"(request|uri|path)\\\"\""
+    stage.static_labels {
+      values = { kind = "access", level = "info" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"access\"} |~ \"\\\" 5[0-9]{2} |\\\"(status|response_code)\\\":\\\\s*\\\"?5[0-9]{2}\""
+    stage.static_labels {
+      values = { level = "error" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"access\"} |~ \"\\\" 4[0-9]{2} |\\\"(status|response_code)\\\":\\\\s*\\\"?4[0-9]{2}\""
+    stage.static_labels {
+      values = { level = "warn" }
+    }
+  }
+
+  // nginx error log: "2026/11/11 16:00:00 [error] 12#12: ..."
+  stage.match {
+    selector = "{kind=\"app\"} |~ \"^[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9:]{8} \\\\[(emerg|alert|crit|error|warn|notice|info)\\\\]\""
+    stage.static_labels {
+      values = { kind = "error", level = "error" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"error\"} |~ \"\\\\[warn\\\\]\""
+    stage.static_labels {
+      values = { level = "warn" }
+    }
+  }
+  stage.match {
+    selector = "{kind=\"error\"} |~ \"\\\\[(notice|info)\\\\]\""
+    stage.static_labels {
+      values = { level = "info" }
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// ---------------------------------------------------------------- faro.alloy
+// Receives Grafana Faro browser telemetry (console logs, errors, events, web vitals) from static or
+// single page apps and stores it in Loki next to the container logs.
+//
+// A browser sends to  <origin>/collect.  The app names itself in its Faro setup:
+//   initializeFaro({ url: "https://helmsman.example.com/faro/collect",
+//                    app: { name: "billing-web", environment: "staging" } })
+// Helmsman finds those lines through faro_app in the catalog (see docs/logs.md).
+//
+//   FARO_ALLOWED_ORIGINS   comma separated origins that may send, e.g. https://billing.example.com
+
+faro.receiver "browser" {
+  server {
+    listen_address           = "0.0.0.0"
+    listen_port              = 12347
+    cors_allowed_origins     = string.split(coalesce(sys.env("FARO_ALLOWED_ORIGINS"), "*"), ",")
+    max_allowed_payload_size = "512KiB"
+
+    // Anyone on the internet can post here, so cap it.
+    rate_limiting {
+      enabled    = true
+      rate       = 50
+      burst_size = 100
+    }
+  }
+
+  output {
+    logs = [loki.process.faro.receiver]
+  }
+}
+
+// The receiver writes one logfmt line per item (kind=log, kind=exception, kind=event, kind=measurement)
+// with the app name and environment inside the line. Promote the few fields Helmsman filters on to
+// labels, and map Faro's kinds onto the same kind and level labels the container logs use:
+//   log -> app, exception -> exception (level error), event -> event, measurement -> measurement
+loki.process "faro" {
+  stage.static_labels {
+    values = { source = "browser" }
+  }
+  stage.logfmt {
+    mapping = {
+      faro_kind = "kind",
+      faro_level = "level",
+      app_name = "app_name",
+      app_environment = "app_environment",
+    }
+  }
+  stage.template {
+    source   = "kind"
+    template = `{{ if eq .faro_kind "log" }}app{{ else }}{{ .faro_kind }}{{ end }}`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if eq .faro_kind "exception" }}error{{ else if eq .faro_level "error" }}error{{ else if eq .faro_level "warn" }}warn{{ else if or (eq .faro_level "debug") (eq .faro_level "trace") }}debug{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = {
+      kind = "",
+      level = "",
+      app = "app_name",
+      env = "app_environment",
+    }
+  }
+  forward_to = [loki.write.default.receiver]
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- A static page that reports its own errors, events and console messages to Helmsman's log history.
+     Copy the two script tags into your page. Three values must match the Helmsman catalog:
+       app.name         == logs.faro_app of the environment
+       app.environment  == the environment's name (staging, prod, ...)
+       the page's origin is listed in FARO_ALLOWED_ORIGINS on the Faro receiver -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Faro sample</title>
+</head>
+<body>
+  <h1>Faro sample</h1>
+  <button id="boom">Throw an error</button>
+
+  <script src="https://unpkg.com/@grafana/faro-web-sdk@2.14.0/dist/bundle/faro-web-sdk.iife.js"></script>
+  <script>
+    const faro = window.GrafanaFaroWebSdk.initializeFaro({
+      // The public address of the receiver: your Helmsman server's /faro/collect, or a Faro-only Alloy.
+      url: "https://helmsman.example.com/faro/collect",
+      app: { name: "billing-web", version: "1.4.2", environment: "staging" },
+
+      // Console messages are reported too. Keep this list short: debug output is noisy and may hold data.
+      instrumentations: [
+        ...window.GrafanaFaroWebSdk.getWebInstrumentations({ captureConsole: true, captureConsoleDisabledLevels: ["debug", "trace"] }),
+      ],
+
+      // Remove anything personal before it leaves the browser. Return null to drop an item.
+      beforeSend: (item) => {
+        if (item.meta && item.meta.page) item.meta.page.url = item.meta.page.url.split("?")[0]; // no query strings
+        return item;
+      },
+    });
+
+    // Optional: say who is using the page, by an id that means nothing outside your system (never an email).
+    // faro.api.setUser({ id: "user-1234" });
+
+    // Your own events show up as "events" in Helmsman, and your own messages as "messages".
+    faro.api.pushEvent("page_ready", { route: location.pathname });
+    document.getElementById("boom").onclick = () => { throw new Error("sample error from the button"); };
+  </script>
+</body>
+</html>
