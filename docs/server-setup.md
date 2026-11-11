@@ -10,7 +10,7 @@ Put Helmsman on a server with a public address and deploy it from GitHub Actions
  app servers: agent ─ wss ─> Caddy ─> Helmsman             (agents dial out, no inbound ports)
 ```
 
-You need: an x86 Linux server with a public IP, the DNS name `helmsman.vasconsolutionsapp.com` pointing at it, and admin rights on `poppyszn/helmsman` and the `pops-personal-org` organization. About 30 minutes.
+You need: an x86 Linux server with a public IP, the DNS name `portal.alphaskysolutions.com` pointing at it, and admin rights on `poppyszn/helmsman` and the `pops-personal-org` organization. About 30 minutes.
 
 ## 1. Prepare the server
 
@@ -26,7 +26,7 @@ chown deploy:deploy /opt/helmsman-secrets && chmod 700 /opt/helmsman-secrets
 
 Open ports **22** (SSH, key only), **80** and **443** in the firewall or cloud security group. Do not open 8080 or 5432.
 
-Point a DNS `A` record for `helmsman.vasconsolutionsapp.com` at the server and wait until `dig +short helmsman.vasconsolutionsapp.com` returns its IP. Caddy needs this to get a Let's Encrypt certificate.
+Point a DNS `A` record for `portal.alphaskysolutions.com` at the server and wait until `dig +short portal.alphaskysolutions.com` returns its IP. Caddy needs this to get a Let's Encrypt certificate.
 
 ## 2. Give GitHub Actions a way in
 
@@ -34,18 +34,18 @@ On your laptop, make a key used only for deploying Helmsman:
 
 ```bash
 ssh-keygen -t ed25519 -N "" -C "helmsman-deploy" -f helmsman-deploy
-ssh-copy-id -i helmsman-deploy.pub deploy@helmsman.vasconsolutionsapp.com    # or paste the .pub into /home/deploy/.ssh/authorized_keys
-ssh -i helmsman-deploy deploy@helmsman.vasconsolutionsapp.com docker ps      # must work without a password
-ssh-keyscan -p 22 helmsman.vasconsolutionsapp.com > known_hosts.txt          # pins the server's host key
+ssh-copy-id -i helmsman-deploy.pub deploy@portal.alphaskysolutions.com    # or paste the .pub into /home/deploy/.ssh/authorized_keys
+ssh -i helmsman-deploy deploy@portal.alphaskysolutions.com docker ps      # must work without a password
+ssh-keyscan -p 22 portal.alphaskysolutions.com > known_hosts.txt          # pins the server's host key
 ```
 
 ## 3. GitHub: sign-in and runs
 
-1. **OAuth App** (sign-in): https://github.com/organizations/pops-personal-org/settings/applications/new. Homepage `https://helmsman.vasconsolutionsapp.com`. Callback `https://helmsman.vasconsolutionsapp.com/auth/github/callback`. Keep the client ID, and generate a client secret.
+1. **OAuth App** (sign-in): https://github.com/organizations/pops-personal-org/settings/applications/new. Homepage `https://portal.alphaskysolutions.com`. Callback `https://portal.alphaskysolutions.com/auth/github/callback`. Keep the client ID, and generate a client secret.
 2. **GitHub App** (migrations and seeds): reuse the one you made for the test. It needs Actions read and write, Contents read, Metadata read, and must be installed on every app repository. Copy its private key to the server:
    ```bash
-   scp github-app.pem deploy@helmsman.vasconsolutionsapp.com:/opt/helmsman-secrets/github-app.pem
-   ssh deploy@helmsman.vasconsolutionsapp.com chmod 600 /opt/helmsman-secrets/github-app.pem
+   scp github-app.pem deploy@portal.alphaskysolutions.com:/opt/helmsman-secrets/github-app.pem
+   ssh deploy@portal.alphaskysolutions.com chmod 600 /opt/helmsman-secrets/github-app.pem
    ```
 3. Your numeric GitHub user ID, for the first admin: `gh api users/<your login> --jq .id`.
 
@@ -56,12 +56,12 @@ The workflow deploys `main` to a GitHub Environment named `develop`. Create it a
 ```bash
 R=poppyszn/helmsman
 gh api -X PUT repos/$R/environments/develop >/dev/null
-gh secret set SSH_HOST        --env develop -R $R --body "helmsman.vasconsolutionsapp.com"
+gh secret set SSH_HOST        --env develop -R $R --body "portal.alphaskysolutions.com"
 gh secret set SSH_USER        --env develop -R $R --body "deploy"
 gh secret set WORKING_DIR     --env develop -R $R --body "/opt/helmsman"
 gh secret set SSH_PRIVATE_KEY --env develop -R $R < helmsman-deploy
 gh secret set SSH_KNOWN_HOSTS --env develop -R $R < known_hosts.txt
-gh variable set HEALTH_URL    --env develop -R $R --body "https://helmsman.vasconsolutionsapp.com/readyz"
+gh variable set HEALTH_URL    --env develop -R $R --body "https://portal.alphaskysolutions.com/readyz"
 # only if SSH is not on port 22:  gh secret set SSH_PORT --env develop -R $R --body "2222"
 ```
 
@@ -85,7 +85,7 @@ The pipeline only restarts the `server` service. Postgres and the others are sta
 
    | Variable | Value |
    |---|---|
-   | `IDP_HOST`, `IDP_BASE_URL` | `helmsman.vasconsolutionsapp.com` and `https://helmsman.vasconsolutionsapp.com` |
+   | `IDP_HOST`, `IDP_BASE_URL` | `portal.alphaskysolutions.com` and `https://portal.alphaskysolutions.com` |
    | `CADDY_TLS` | leave empty (Let's Encrypt) |
    | `IDP_SESSION_KEY`, `IDP_ENCRYPTION_KEY` | the two random values |
    | `IDP_ALLOWED_ORGS` | `pops-personal-org` |
@@ -97,14 +97,14 @@ The pipeline only restarts the `server` service. Postgres and the others are sta
 
    Keep `COMPOSE_PROFILES=caddy,backup`. Check it: `bash preflight.sh` prints `preflight: ok`.
 3. **Start the database**: `docker compose --env-file .env up -d postgres`. The first start creates the limited `helmsman_app` role.
-4. **Second run.** Run **Deploy** again. It now passes preflight, pulls the image and starts the server, which migrates the database. The run's last step checks `https://helmsman.vasconsolutionsapp.com/readyz` (Caddy is not up yet, so that check may fail on this one run only; go on to the next step and re-run once).
+4. **Second run.** Run **Deploy** again. It now passes preflight, pulls the image and starts the server, which migrates the database. The run's last step checks `https://portal.alphaskysolutions.com/readyz` (Caddy is not up yet, so that check may fail on this one run only; go on to the next step and re-run once).
 5. **Start the rest**: Caddy, the bucket and the backup sidecar. They run under the same image tag the pipeline used:
    ```bash
    export IMAGE_TAG=$(cat /opt/helmsman/helmsman.develop.deployed-sha)
    docker compose --env-file .env up -d
    docker compose --env-file .env ps        # everything healthy
    ```
-   Caddy gets its certificate in under a minute. Open `https://helmsman.vasconsolutionsapp.com` and sign in with GitHub.
+   Caddy gets its certificate in under a minute. Open `https://portal.alphaskysolutions.com` and sign in with GitHub.
 
 From now on a merge to `main` is the whole deploy. The environment's `.env` is never touched by it.
 
@@ -129,7 +129,7 @@ That signs in, visits every admin page, checks that the catalog loaded and no ag
 ## 7. Add your servers and apps
 
 1. In the UI, **Agents > create agent**, for each host that runs apps. Copy the join token (single use, valid one hour).
-2. On that host, make `agent.yaml` listing only the services to expose (`examples/agent.yaml`), with `idp_url: wss://helmsman.vasconsolutionsapp.com/agent/ws`. Find the project and service names with:
+2. On that host, make `agent.yaml` listing only the services to expose (`examples/agent.yaml`), with `idp_url: wss://portal.alphaskysolutions.com/agent/ws`. Find the project and service names with:
    ```bash
    docker ps --format '{{.Label "com.docker.compose.project"}} {{.Label "com.docker.compose.service"}}' | sort -u
    ```
