@@ -9,6 +9,10 @@
 	request_body {
 		max_size 64KB
 	}
+	# Optional routes for log history: the Faro endpoint for browsers and an authenticated Loki push for
+	# Alloy on other hosts. Present only when caddy/logs/logs.caddy exists.
+	import /etc/caddy/logs/*.caddy
+
 	# WebSockets (agents and log streams) pass through with no read timeout, so long-lived
 	# connections stay open.
 	reverse_proxy server:8080 {

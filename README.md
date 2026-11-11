@@ -20,7 +20,7 @@ make up
 
 `make up` also seeds the dev data and starts a real agent. The agent joins within about a minute of the first start. Sign in through the fake GitHub picker (see the runbook for the dev accounts), open **Apps**, then **Demo App**, to see status, tail logs and restart the container. The **runs** tab starts migrations and seeds against the fake GitHub, which paces a run over about 16 seconds. The **deployments** tab lists the deploy workflow runs.
 
-Other targets: `make test`, `make down`, `make logs`, `make build`, `make e2e` (Playwright end-to-end tests), `make e2e-server` (checks of a live deployment), `make backup-test` (backup and restore drill), `make up-github` (runs against a real GitHub App). Run `make help` for the list.
+Other targets: `make test`, `make down`, `make logs`, `make build`, `make e2e` (Playwright end-to-end tests), `make e2e-server` (checks of a live deployment), `make backup-test` (backup and restore drill), `make up-logs` (adds Loki and Alloy for log history), `make up-github` (runs against a real GitHub App). Run `make help` for the list.
 
 ## Layout
 
@@ -30,6 +30,7 @@ See the directory layout in `docs/catalog.md` and the code comments. Key parts: 
 
 - [Agent install](docs/agent-install.md)
 - [Catalog reference](docs/catalog.md)
+- [Log history](docs/logs.md): Loki and Alloy, nginx and browser (Faro) logs, filters
 - [Server setup](docs/server-setup.md): put Helmsman on a public server and deploy it from GitHub Actions
 - [Runbook](docs/runbook.md): operations, production deploy, backups, load test
 - [Security checklist](docs/security.md): each control, where it lives and its test

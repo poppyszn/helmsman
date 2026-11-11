@@ -2,11 +2,12 @@
 idp_url: ws://server:8080/agent/ws
 allow:
   - compose_project: helmsman-dev
-    services: [demo-app, demo-app-2]
+    services: [demo-app, demo-app-2, static-demo]
     actions: [logs, restart]
     health_urls:
       - http://demo-app:8080/health
       - http://demo-app-2:8080/health
+      - http://static-demo/
 limits:
   max_streams: 5
   max_lines_per_sec: 500

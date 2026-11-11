@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnsiText } from "@/components/AnsiText";
-import { formatTime } from "@/lib/api";
+import { formatTime, isAccessLine } from "@/lib/api";
 
 type Line = { ts: string; stream: string; text: string; marker?: boolean };
 type Conn = "idle" | "connecting" | "live" | "closed";
@@ -43,6 +43,8 @@ export function LogViewer({
   const [note, setNote] = useState("");
   const [paused, setPaused] = useState(false);
   const [filter, setFilter] = useState("");
+  // A static web container writes one nginx access line per request, which buries everything else.
+  const [hideAccess, setHideAccess] = useState(false);
   const [tail, setTail] = useState(200);
   const [follow, setFollow] = useState(true);
   const [heldCount, setHeldCount] = useState(0);
@@ -116,8 +118,9 @@ export function LogViewer({
 
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
-    return f ? lines.filter((l) => l.text.toLowerCase().includes(f)) : lines;
-  }, [lines, filter]);
+    const visible = hideAccess ? lines.filter((l) => !isAccessLine(l.text)) : lines;
+    return f ? visible.filter((l) => l.text.toLowerCase().includes(f)) : visible;
+  }, [lines, filter, hideAccess]);
 
   useEffect(() => {
     if (follow && !paused && box.current) {
@@ -208,6 +211,16 @@ export function LogViewer({
               className="rounded size-3.5 accent-white cursor-pointer"
             />
             follow
+          </label>
+
+          <label className="flex items-center gap-2 px-1 text-xs text-zinc-400 cursor-pointer select-none" title="Hide nginx request lines, so errors and messages stand out">
+            <input
+              type="checkbox"
+              checked={hideAccess}
+              onChange={(e) => setHideAccess(e.target.checked)}
+              className="rounded size-3.5 accent-white cursor-pointer"
+            />
+            hide access lines
           </label>
         </div>
 

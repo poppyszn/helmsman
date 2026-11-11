@@ -22,6 +22,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/config"
 	"github.com/poppyszn/helmsman/internal/gh"
 	"github.com/poppyszn/helmsman/internal/health"
+	"github.com/poppyszn/helmsman/internal/loki"
 	"github.com/poppyszn/helmsman/internal/store"
 	"github.com/poppyszn/helmsman/web"
 )
@@ -82,7 +83,7 @@ func run(log *slog.Logger) error {
 	go checker.Run(ctx)
 	go prune(ctx, st, log)
 
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, UI: web.Dist()})
+	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: lokiClient(cfg), Log: log, UI: web.Dist()})
 	if err != nil {
 		return err
 	}
@@ -176,4 +177,12 @@ func healthcheck() int {
 		return 1
 	}
 	return 0
+}
+
+// lokiClient returns nil when log history is not configured, which the API reports as such.
+func lokiClient(cfg config.Config) loki.Querier {
+	if cfg.LokiURL == "" {
+		return nil
+	}
+	return loki.New(cfg.LokiURL, cfg.LokiUser, cfg.LokiPassword)
 }

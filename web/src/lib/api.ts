@@ -168,3 +168,27 @@ export type RepoCheck = {
 };
 
 export const runActive = (s: RunStatus) => ["dispatching", "queued", "in_progress", "waiting"].includes(s);
+
+export type HistoryEntry = {
+  ts: string;
+  source: "container" | "browser";
+  kind: "access" | "error" | "app" | "exception" | "event" | "measurement";
+  level: "error" | "warn" | "info" | "debug";
+  text: string;
+  session?: string;
+  page?: string;
+  version?: string;
+};
+
+export type HistoryResponse = {
+  entries: HistoryEntry[];
+  sources: { container: boolean; browser: boolean };
+  kinds: { container: string[]; browser: string[] };
+  truncated: boolean;
+  next_before: string | null;
+  retention: string;
+};
+
+/** An nginx access line in the default "combined" format, or a JSON access line. The same test Alloy applies when it labels history. */
+const ACCESS_LINE = /^\S+ \S+ \S+ \[[^\]]+\] "[A-Z]+ [^"]*" \d{3} |^\{.*"(status|response_code)":\s*"?\d{3}"?.*"(request|uri|path)"/;
+export const isAccessLine = (text: string) => ACCESS_LINE.test(text);

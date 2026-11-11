@@ -1,0 +1,12 @@
+// Where every Alloy pipeline in this folder sends its logs.
+//   LOKI_URL        e.g. http://loki:3100/loki/api/v1/push
+//   LOKI_USER, LOKI_PASSWORD   basic auth when Loki is behind Caddy (leave empty inside the compose network)
+loki.write "default" {
+  endpoint {
+    url = coalesce(sys.env("LOKI_URL"), "http://loki:3100/loki/api/v1/push")
+    basic_auth {
+      username = coalesce(sys.env("LOKI_USER"), "")
+      password = coalesce(sys.env("LOKI_PASSWORD"), "")
+    }
+  }
+}

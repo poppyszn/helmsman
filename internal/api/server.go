@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/auth"
 	"github.com/poppyszn/helmsman/internal/catalog"
 	"github.com/poppyszn/helmsman/internal/config"
+	"github.com/poppyszn/helmsman/internal/loki"
 	"github.com/poppyszn/helmsman/internal/store"
 )
 
@@ -36,7 +38,10 @@ type Deps struct {
 	Hub     *agenthub.Hub
 	Actions *actions.Service
 	Logs    agenthub.LogSource
-	UI      fs.FS
+	// Loki serves log history. Nil means history is not set up.
+	Loki loki.Querier
+	Log  *slog.Logger
+	UI   fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
 	LogRecheck time.Duration
 	// ActionsPerMinute caps state-changing requests per user (default 30); LogOpensPerMinute caps

@@ -57,6 +57,8 @@ services:
       IDP_DISPLAY_TZ: ${IDP_DISPLAY_TZ:-Africa/Lagos}
       # End-to-end tests sign in many times from one address.
       IDP_AUTH_RATE_PER_MINUTE: "300"
+      # Log history: set by `make up-logs`, which also starts Loki and Alloy.
+      IDP_LOKI_URL: ${IDP_LOKI_URL:-}
     ports: ["127.0.0.1:8080:8080"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]
@@ -113,6 +115,15 @@ services:
     restart: unless-stopped
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
+  # A static web app: nginx serving one page, like the apps that run Grafana Faro in the browser.
+  static-demo:
+    image: nginx@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+    volumes:
+      - ../deploy/static-demo/index.html:/usr/share/nginx/html/index.html:ro
+    ports: ["127.0.0.1:9003:80"]
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
   demo-app-2:
     build: { context: .., dockerfile: deploy/docker/tool.Dockerfile, args: { TOOL: demo-app } }
     environment: { APP_NAME: demo-app-2 }
@@ -125,7 +136,40 @@ services:
     ports: ["127.0.0.1:8090:8090"]
     restart: unless-stopped
 
+  # Optional log history: `make up-logs` adds Loki, Alloy (Docker logs and the Faro receiver). See docs/logs.md.
+  loki:
+    profiles: [logs]
+    image: grafana/loki@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ../deploy/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports: ["127.0.0.1:3100:3100"]
+    restart: unless-stopped
+
+  alloy:
+    profiles: [logs]
+    image: grafana/alloy@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy-config"]
+    environment:
+      LOKI_URL: http://loki:3100/loki/api/v1/push
+      LOG_PROJECTS: helmsman-dev
+      HOST_NAME: dev-agent
+      FARO_ALLOWED_ORIGINS: "*"
+    user: "0:0"
+    volumes:
+      - ../deploy/alloy/write.alloy:/etc/alloy-config/write.alloy:ro
+      - ../deploy/alloy/collector.alloy:/etc/alloy-config/collector.alloy:ro
+      - ../deploy/alloy/faro.alloy:/etc/alloy-config/faro.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    ports: ["127.0.0.1:12347:12347", "127.0.0.1:12345:12345"]
+    depends_on: [loki]
+    restart: unless-stopped
+
 volumes:
+  loki-data: {}
+  alloy-data: {}
   agent-data: {}
   pgdata: {}
   gomod: {}

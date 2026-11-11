@@ -1,0 +1,37 @@
+# Alloy on an app host: ships the logs of this host's Docker containers to Loki on the Helmsman server.
+# Install it next to the agent (see docs/logs.md):
+#
+#   export ALLOY_HOST_NAME=billing-host-1                       # the agent id of this host in the catalog
+#   export LOKI_PASSWORD=...                                    # the password behind LOKI_PUSH_PASSWORD_HASH
+#   docker compose -f deploy/compose.alloy.yml up -d
+#
+# Only containers of the compose projects named in LOG_PROJECTS leave this host. List the projects the
+# agent allowlist names, nothing else.
+services:
+  alloy:
+    image: grafana/alloy@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy-config"]
+    environment:
+      LOKI_URL: ${LOKI_URL:?set LOKI_URL, e.g. https://helmsman.example.com/loki/api/v1/push}
+      LOKI_USER: ${LOKI_USER:-alloy}
+      LOKI_PASSWORD: ${LOKI_PASSWORD:?set LOKI_PASSWORD}
+      LOG_PROJECTS: ${LOG_PROJECTS:?set LOG_PROJECTS to a regex of the compose projects to ship, e.g. billing|ledger}
+      HOST_NAME: ${ALLOY_HOST_NAME:?set ALLOY_HOST_NAME to this host's agent id}
+    # The image's own alloy user (473), plus the host's docker group to read the socket:
+    #   export DOCKER_GID=$(stat -c %g /var/run/docker.sock)
+    user: "473:473"
+    group_add: ["${DOCKER_GID:?set DOCKER_GID to the group id of /var/run/docker.sock}"]
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - ./alloy/write.alloy:/etc/alloy-config/write.alloy:ro
+      - ./alloy/collector.alloy:/etc/alloy-config/collector.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    mem_limit: 192m
+    cpus: 0.5
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+volumes: { alloy-data: {} }

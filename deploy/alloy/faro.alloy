@@ -1,0 +1,64 @@
+// Receives Grafana Faro browser telemetry (console logs, errors, events, web vitals) from static or
+// single page apps and stores it in Loki next to the container logs.
+//
+// A browser sends to  <origin>/collect.  The app names itself in its Faro setup:
+//   initializeFaro({ url: "https://helmsman.example.com/faro/collect",
+//                    app: { name: "billing-web", environment: "staging" } })
+// Helmsman finds those lines through faro_app in the catalog (see docs/logs.md).
+//
+//   FARO_ALLOWED_ORIGINS   comma separated origins that may send, e.g. https://billing.example.com
+
+faro.receiver "browser" {
+  server {
+    listen_address           = "0.0.0.0"
+    listen_port              = 12347
+    cors_allowed_origins     = string.split(coalesce(sys.env("FARO_ALLOWED_ORIGINS"), "*"), ",")
+    max_allowed_payload_size = "512KiB"
+
+    // Anyone on the internet can post here, so cap it.
+    rate_limiting {
+      enabled    = true
+      rate       = 50
+      burst_size = 100
+    }
+  }
+
+  output {
+    logs = [loki.process.faro.receiver]
+  }
+}
+
+// The receiver writes one logfmt line per item (kind=log, kind=exception, kind=event, kind=measurement)
+// with the app name and environment inside the line. Promote the few fields Helmsman filters on to
+// labels, and map Faro's kinds onto the same kind and level labels the container logs use:
+//   log -> app, exception -> exception (level error), event -> event, measurement -> measurement
+loki.process "faro" {
+  stage.static_labels {
+    values = { source = "browser" }
+  }
+  stage.logfmt {
+    mapping = {
+      faro_kind = "kind",
+      faro_level = "level",
+      app_name = "app_name",
+      app_environment = "app_environment",
+    }
+  }
+  stage.template {
+    source   = "kind"
+    template = `{{ if eq .faro_kind "log" }}app{{ else }}{{ .faro_kind }}{{ end }}`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if eq .faro_kind "exception" }}error{{ else if eq .faro_level "error" }}error{{ else if eq .faro_level "warn" }}warn{{ else if or (eq .faro_level "debug") (eq .faro_level "trace") }}debug{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = {
+      kind = "",
+      level = "",
+      app = "app_name",
+      env = "app_environment",
+    }
+  }
+  forward_to = [loki.write.default.receiver]
+}

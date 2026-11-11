@@ -15,6 +15,7 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogViewer } from "@/components/LogViewer";
+import { LogHistory } from "@/components/LogHistory";
 import { RunsPanel } from "@/components/RunsPanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 
@@ -120,6 +121,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
   const tz = me?.display_tz ?? "UTC";
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("logs");
+  const [logMode, setLogMode] = useState<"live" | "history">("live");
   const [copiedSha, setCopiedSha] = useState(false);
 
   const q = useQuery<EnvStatus>({
@@ -307,12 +309,35 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
         ) : activeTab === "deployments" ? (
           <DeploymentsPanel app={app} env={env.env} tz={tz} />
         ) : activeTab === "logs" ? (
-          <LogViewer
-            app={app}
-            env={env.env}
-            tz={tz}
-            disabledReason={s.blocked.logs || (s.can_logs ? undefined : "You do not have permission to view logs for this environment.")}
-          />
+          <div className="space-y-3">
+            <div className="flex w-fit rounded-lg bg-[#121215] p-1 text-xs font-mono" role="group" aria-label="Log mode">
+              {(["live", "history"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={logMode === m}
+                  onClick={() => setLogMode(m)}
+                  className={`rounded-md px-3 py-1 cursor-pointer select-none transition-colors ${
+                    logMode === m ? "bg-[#202028] text-white" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {m === "live" ? "live tail" : "history"}
+                </button>
+              ))}
+            </div>
+            {logMode === "live" ? (
+              <LogViewer
+                app={app}
+                env={env.env}
+                tz={tz}
+                disabledReason={s.blocked.logs || (s.can_logs ? undefined : "You do not have permission to view logs for this environment.")}
+              />
+            ) : s.can_logs ? (
+              <LogHistory app={app} env={env.env} tz={tz} />
+            ) : (
+              <p className="rounded-md bg-amber-500/10 p-2.5 text-xs text-amber-300 font-mono">You do not have permission to view logs for this environment.</p>
+            )}
+          </div>
         ) : (
           <div>
             {s.events.length === 0 ? (

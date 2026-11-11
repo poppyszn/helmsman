@@ -78,10 +78,15 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 			if e.GitHubEnvironment == "" {
 				add("%s: github_environment is required", et)
 			}
+			if e.Logs.FaroApp != "" && !faroAppRE.MatchString(e.Logs.FaroApp) {
+				add("%s: logs.faro_app may use letters, digits, dot, dash and underscore (up to 100)", et)
+			}
 		}
 	}
 	return errs
 }
+
+var faroAppRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
 
 func checkURL(errs *[]error, field, v string, required bool) {
 	if v == "" {

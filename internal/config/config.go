@@ -45,6 +45,10 @@ type Config struct {
 	// TrustedProxies are the networks allowed to set X-Forwarded-For (comma separated CIDRs).
 	// Empty means loopback and private ranges. Set it to the proxy address to be stricter.
 	TrustedProxies string
+	// LokiURL enables log history. Empty means the history view reports that it is not set up.
+	LokiURL      string
+	LokiUser     string
+	LokiPassword string
 	// AuthRatePerMinute caps sign-in and agent-join attempts per client address (default 20).
 	// The dev stack raises it so end-to-end tests can sign in many times.
 	AuthRatePerMinute int
@@ -90,6 +94,9 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		GitHubAppKeyPath:       get("GITHUB_APP_PRIVATE_KEY_PATH", ""),
 		GitHubAppAPIURL:        strings.TrimRight(get("IDP_GITHUB_APP_API_URL", ""), "/"),
 		TrustedProxies:         get("IDP_TRUSTED_PROXIES", ""),
+		LokiURL:                strings.TrimRight(get("IDP_LOKI_URL", ""), "/"),
+		LokiUser:               get("IDP_LOKI_USER", ""),
+		LokiPassword:           get("IDP_LOKI_PASSWORD", ""),
 		GitHubAuthURL:          get("IDP_GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"),
 		GitHubTokenURL:         get("IDP_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
 		GitHubAPIURL:           strings.TrimRight(get("IDP_GITHUB_API_URL", "https://api.github.com"), "/"),
