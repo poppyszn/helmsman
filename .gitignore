@@ -10,3 +10,4 @@ coverage.out
 .DS_Store
 deploy/secrets/*
 !deploy/secrets/.gitkeep
+deploy/loadtest-catalog.yaml

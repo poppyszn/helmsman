@@ -573,3 +573,38 @@ func TestSilentAgentIsMarkedOffline(t *testing.T) {
 	go func() { _, _, _ = ws.Read(ctx) }() // keep answering control frames, send nothing
 	waitFor(t, "offline after silence", 5*time.Second, func() bool { return !alice.status("billing-api", "staging").Agent.Online })
 }
+
+func TestLogsWebSocketRejectsOtherOrigins(t *testing.T) {
+	e := newEnv(t)
+	fd, sock := newFakeDocker(t)
+	e.startAgent(fd, sock, t.TempDir(), billingAllow)
+	alice := e.client()
+	alice.login("alice")
+	waitFor(t, "agent", 10*time.Second, func() bool { return alice.status("billing-api", "staging").Container != nil })
+
+	u, _ := http.NewRequest("GET", e.idp.URL, nil)
+	var cookies []string
+	for _, ck := range alice.http.Jar.Cookies(u.URL) {
+		cookies = append(cookies, ck.Name+"="+ck.Value)
+	}
+	dial := func(origin string) (*http.Response, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		hdr := http.Header{"Cookie": {strings.Join(cookies, "; ")}}
+		if origin != "" {
+			hdr.Set("Origin", origin)
+		}
+		c, resp, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(e.idp.URL, "http")+"/ws/apps/billing-api/envs/staging/logs?tail=1", &websocket.DialOptions{HTTPHeader: hdr})
+		if c != nil {
+			_ = c.CloseNow()
+		}
+		return resp, err
+	}
+	// A page on another site, holding the user's cookie, must not be able to read logs.
+	if resp, err := dial("https://evil.example"); err == nil || resp == nil || resp.StatusCode != 403 {
+		t.Fatalf("cross-origin socket must be refused with 403: %v %v", err, resp)
+	}
+	if _, err := dial(e.idp.URL); err != nil {
+		t.Fatalf("same-origin must work: %v", err)
+	}
+}

@@ -1,0 +1,8 @@
+# Dev stack whose server reads the catalog written by tools/loadtest. Used only for load testing:
+#   docker compose -f deploy/compose.dev.yml -f deploy/compose.loadtest.yml up -d --build
+#   go run ./tools/loadtest -url http://localhost:8080
+# Switch back with `make up`. The catalog file is gitignored and created by the tool.
+services:
+  server:
+    environment:
+      IDP_CATALOG_PATH: /src/deploy/loadtest-catalog.yaml

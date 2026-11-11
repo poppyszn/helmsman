@@ -37,9 +37,10 @@ jobs:
         with:
           version: latest
       - run: go vet ./...
-      - run: go test -race ./...
+      # Packages share one test database, so they run one at a time.
+      - run: go test -race -p 1 ./...
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   web:
     runs-on: ubuntu-latest
@@ -92,3 +93,24 @@ jobs:
         env:
           DOCKER_GID: "999"
           AGENT_VERSION: latest
+      - name: Server compose resolves with its required variables
+        run: docker compose -f deploy/compose.server.yml config -q
+        env:
+          IDP_IMAGE: ghcr.io/poppyszn/helmsman-server@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          POSTGRES_PASSWORD: ci
+          APP_DB_PASSWORD: ci
+          CATALOG_DIR: /tmp
+          GITHUB_APP_KEY_FILE: /tmp/key.pem
+      - name: Server compose pins images by digest
+        run: |
+          if grep -nE '^\s+image:' deploy/compose.server.yml | grep -v '@sha256:' | grep -v 'IDP_IMAGE'; then
+            echo "an image in compose.server.yml is not pinned by digest" >&2; exit 1
+          fi
+      - name: Shell scripts parse
+        run: for f in deploy/backup/*.sh deploy/db/*.sh; do bash -n "$f"; done
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: deploy
+          severity: HIGH,CRITICAL
+          exit-code: "1"

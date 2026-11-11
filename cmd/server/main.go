@@ -27,6 +27,10 @@ import (
 )
 
 func main() {
+	// "server healthcheck" lets the distroless image check itself (no shell or wget in it).
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck())
+	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(log); err != nil {
 		log.Error("fatal", "err", err)
@@ -152,3 +156,24 @@ func (u unconfigured) Token(context.Context, string) (string, error) {
 	return "", errors.New(string(u))
 }
 func (unconfigured) Invalidate(string) {}
+
+// healthcheck probes /readyz on the local listener and returns a process exit code.
+func healthcheck() int {
+	addr := os.Getenv("IDP_LISTEN")
+	if addr == "" {
+		addr = ":8080"
+	}
+	if addr[0] == ':' {
+		addr = "127.0.0.1" + addr
+	}
+	c := http.Client{Timeout: 2 * time.Second}
+	res, err := c.Get("http://" + addr + "/readyz")
+	if err != nil {
+		return 1
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
+}
