@@ -76,3 +76,28 @@ func TestProblems(t *testing.T) {
 		}
 	}
 }
+
+func TestLinks(t *testing.T) {
+	ok := strings.Replace(good, "    repo: acme-org/billing-api\n", "    repo: acme-org/billing-api\n    links:\n      - { name: Runbook, url: https://wiki.example.com/billing }\n", 1)
+	c, err := Parse([]byte(ok))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errs := Validate(c, known("staging-app-01", "prod-app-01")); len(errs) != 0 {
+		t.Fatalf("valid links rejected: %v", JoinErrors(errs))
+	}
+	for name, links := range map[string]string{
+		"no name":   "{ name: '', url: https://x.example.com }",
+		"bad url":   "{ name: Docs, url: 'javascript:alert(1)' }",
+		"no scheme": "{ name: Docs, url: wiki.example.com }",
+	} {
+		bad := strings.Replace(good, "    repo: acme-org/billing-api\n", "    repo: acme-org/billing-api\n    links:\n      - "+links+"\n", 1)
+		c, err := Parse([]byte(bad))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if errs := Validate(c, known("staging-app-01", "prod-app-01")); len(errs) == 0 {
+			t.Errorf("%s: expected a validation error", name)
+		}
+	}
+}
