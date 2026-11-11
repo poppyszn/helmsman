@@ -8,6 +8,7 @@ import Users from "@/pages/admin/Users";
 import Bindings from "@/pages/admin/Bindings";
 import Audit from "@/pages/admin/Audit";
 import Catalog from "@/pages/admin/Catalog";
+import Agents from "@/pages/admin/Agents";
 
 function Protected() {
   const { data, isPending, error } = useMe();
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/bindings" element={<Bindings />} />
         <Route path="/admin/catalog" element={<Catalog />} />
+        <Route path="/admin/agents" element={<Agents />} />
         <Route path="/admin/audit" element={<Audit />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

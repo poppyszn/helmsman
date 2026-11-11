@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/poppyszn/helmsman/internal/agenthub"
 	"github.com/poppyszn/helmsman/internal/audit"
 	"github.com/poppyszn/helmsman/internal/auth"
 	"github.com/poppyszn/helmsman/internal/catalog"
@@ -31,21 +32,26 @@ type Deps struct {
 	Audit   *audit.Writer
 	Auth    *auth.Service
 	Catalog *catalog.Manager
+	Hub     *agenthub.Hub
+	Logs    agenthub.LogSource
 	UI      fs.FS
+	// LogRecheck is how often open log streams re-check access (default 60 s).
+	LogRecheck time.Duration
 }
 
 // Server is the HTTP API.
 type Server struct {
 	Deps
-	mux     chi.Router
-	limiter *rateLimiter
+	mux      chi.Router
+	limiter  *rateLimiter
+	restarts inflight
 }
 
 // New builds the router. It returns an error if any route lacks a permission.
 func New(d Deps) (*Server, error) {
 	s := &Server{Deps: d, limiter: newRateLimiter(20, time.Minute)}
 	r := chi.NewRouter()
-	r.Use(middleware.RealIP, middleware.Recoverer, middleware.Timeout(60*time.Second), securityHeaders)
+	r.Use(middleware.RealIP, middleware.Recoverer, timeoutExceptSockets(60*time.Second), securityHeaders)
 	for _, rt := range s.Routes() {
 		if rt.Permission == "" {
 			return nil, fmt.Errorf("route %s %s declares no permission", rt.Method, rt.Path)
@@ -55,6 +61,22 @@ func New(d Deps) (*Server, error) {
 	r.NotFound(s.serveUI)
 	s.mux = r
 	return s, nil
+}
+
+// timeoutExceptSockets applies a request timeout to everything but WebSocket endpoints,
+// which stay open for as long as the peer does.
+func timeoutExceptSockets(d time.Duration) func(http.Handler) http.Handler {
+	t := middleware.Timeout(d)
+	return func(next http.Handler) http.Handler {
+		limited := t(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/ws/") || r.URL.Path == "/agent/ws" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			limited.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Handler returns the root handler.

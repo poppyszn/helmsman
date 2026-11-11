@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type App } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function Apps() {
-  const { data, isPending, error } = useQuery<App[]>({ queryKey: ["apps"], queryFn: () => api("/api/apps") });
+  const { data, isPending, error } = useQuery<App[]>({ queryKey: ["apps"], queryFn: () => api("/api/apps"), refetchInterval: 15_000 });
   if (isPending) return <p className="text-sm text-muted">Loading</p>;
   if (error) {
     return (
@@ -28,7 +29,10 @@ export default function Apps() {
               <div className="mb-2 text-xs text-muted">{a.repo}</div>
               <div className="flex flex-wrap gap-1.5">
                 {a.environments.map((e) => (
-                  <Badge key={e.env} tone={e.tier === "prod" ? "prod" : "default"}>{e.env}</Badge>
+                  <span key={e.env} className="flex items-center gap-1">
+                    <Badge tone={e.tier === "prod" ? "prod" : "default"}>{e.env}</Badge>
+                    <StatusBadge status={e.status} />
+                  </span>
                 ))}
               </div>
             </Card>

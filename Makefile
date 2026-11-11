@@ -9,8 +9,9 @@ NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-up: ## Start the dev stack (UI on http://localhost:5173)
+up: ## Start the dev stack and seed dev data (UI on http://localhost:5173)
 	$(COMPOSE_DEV) up -d --build --wait --wait-timeout 180
+	@$(MAKE) --no-print-directory seed-dev
 	@echo "UI: http://localhost:5173  API: http://localhost:8080"
 
 down: ## Stop the dev stack (keeps volumes)
@@ -39,4 +40,4 @@ e2e: ## Playwright end to end tests (arrive in M1+)
 
 seed-dev: ## Seed the dev agent, users and role bindings
 	$(COMPOSE_DEV) exec -T postgres psql -U helmsman -d helmsman -v ON_ERROR_STOP=1 < deploy/seed-dev.sql
-	@echo "Seeded. Sign in as alice (admin), bob (developer), carol (viewer), erin (approver). Reload the catalog from Admin > Catalog."
+	@echo "Seeded. Sign in as alice (admin), bob (developer), carol (viewer), erin (approver). The agent joins within a minute."

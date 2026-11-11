@@ -28,6 +28,7 @@ export default function Layout() {
           {me.can.admin && <NavLink to="/admin/users" className={link}>Users</NavLink>}
           {me.can.admin && <NavLink to="/admin/bindings" className={link}>Access</NavLink>}
           {me.can.admin && <NavLink to="/admin/catalog" className={link}>Catalog</NavLink>}
+          {me.can.agents && <NavLink to="/admin/agents" className={link}>Agents</NavLink>}
           {me.can.audit && <NavLink to="/admin/audit" className={link}>Audit log</NavLink>}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">

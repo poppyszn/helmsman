@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -30,8 +31,9 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"user":       c.User,
 		"csrf_token": auth.CSRFToken(s.Cfg.SessionKey, c.SessionHash),
 		"can": map[string]bool{
-			"admin": c.Principal.AllowedGlobal(rbac.AdminAccess),
-			"audit": c.Principal.AllowedGlobal(rbac.AuditView),
+			"admin":  c.Principal.AllowedGlobal(rbac.AdminAccess),
+			"audit":  c.Principal.AllowedGlobal(rbac.AuditView),
+			"agents": c.Principal.AllowedGlobal(rbac.AdminAgents),
 		},
 		"display_tz": s.Cfg.DisplayTZ,
 	})
@@ -43,6 +45,7 @@ type envView struct {
 	Tier      string `json:"tier"`
 	URL       string `json:"url"`
 	AllowSeed bool   `json:"allow_seed"`
+	Status    string `json:"status"`
 }
 
 type appView struct {
@@ -79,6 +82,7 @@ func (s *Server) handleListApps(w http.ResponseWriter, r *http.Request) {
 	out := []appView{}
 	for _, a := range apps {
 		if v, ok := visibleApp(rc(r).Principal, a); ok {
+			s.fillStatus(r.Context(), &v, a)
 			out = append(out, v)
 		}
 	}
@@ -96,7 +100,19 @@ func (s *Server) handleGetApp(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
+	s.fillStatus(r.Context(), &v, a)
 	writeJSON(w, http.StatusOK, v)
+}
+
+// fillStatus adds the derived status to each visible env.
+func (s *Server) fillStatus(ctx context.Context, v *appView, a store.AppRow) {
+	rows := map[string]store.EnvRow{}
+	for _, e := range a.Envs {
+		rows[e.Env] = e
+	}
+	for i := range v.Environments {
+		v.Environments[i].Status = s.statusLabel(ctx, a.ID, rows[v.Environments[i].Env])
+	}
 }
 
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {

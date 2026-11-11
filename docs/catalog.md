@@ -43,4 +43,8 @@ apps:
 
 ## Agents must exist first
 
-Catalog validation rejects an environment whose `agent` is not registered. Agent registration is built in M2. Until then, `make seed-dev` registers `dev-agent` for the local stack.
+Catalog validation rejects an environment whose `agent` is not registered. Create the agent first under **Agents** in the UI (see [agent-install.md](agent-install.md)); `make seed-dev` registers `dev-agent` for the local stack. Revoking an agent does not change environments that already use it, but a catalog reload that still references it is rejected.
+
+## Health checks
+
+`health.via: server` probes from the IDP host. `via: agent` probes from the app server through its agent, for URLs only that host can reach. The agent only probes URLs listed under `health_urls` in its own `agent.yaml`, and the URL must match exactly. A response below 400 within 2 s is healthy, slower is degraded, and two failures in a row mean down.
