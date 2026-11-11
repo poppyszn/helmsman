@@ -42,10 +42,10 @@ ssh-keyscan -p 22 helmsman.vasconsolutionsapp.com > known_hosts.txt          # p
 ## 3. GitHub: sign-in and runs
 
 1. **OAuth App** (sign-in): https://github.com/organizations/pops-personal-org/settings/applications/new. Homepage `https://helmsman.vasconsolutionsapp.com`. Callback `https://helmsman.vasconsolutionsapp.com/auth/github/callback`. Keep the client ID, and generate a client secret.
-2. **GitHub App** (migrations and seeds): reuse the one you made for the test. It needs Actions read and write, Contents read, Metadata read, and must be installed on every app repository. Copy its private key to the server:
+2. **GitHub App** (migrations and seeds): reuse the one you made for the test. It needs Actions read and write, Contents read, Metadata read, and must be installed on every app repository. Copy its private key to the server. The server container runs as user 65532, so that user must own the file; a key owned by `deploy` with mode 600 gives "the GitHub App private key could not be read":
    ```bash
    scp github-app.pem deploy@helmsman.vasconsolutionsapp.com:/opt/helmsman-secrets/github-app.pem
-   ssh deploy@helmsman.vasconsolutionsapp.com chmod 600 /opt/helmsman-secrets/github-app.pem
+   ssh deploy@helmsman.vasconsolutionsapp.com 'sudo chown 65532:65532 /opt/helmsman-secrets/github-app.pem && sudo chmod 400 /opt/helmsman-secrets/github-app.pem'
    ```
 3. Your numeric GitHub user ID, for the first admin: `gh api users/<your login> --jq .id`.
 
