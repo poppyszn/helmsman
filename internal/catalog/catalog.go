@@ -1,0 +1,85 @@
+// Package catalog loads, validates and syncs catalog/apps.yaml.
+package catalog
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+
+	"go.yaml.in/yaml/v3"
+)
+
+// Catalog is the parsed apps.yaml.
+type Catalog struct {
+	Version int   `yaml:"version" json:"version"`
+	Apps    []App `yaml:"apps" json:"apps"`
+}
+
+// App is one application.
+type App struct {
+	ID           string `yaml:"id" json:"id"`
+	Name         string `yaml:"name" json:"name"`
+	Repo         string `yaml:"repo" json:"repo"`
+	Environments []Env  `yaml:"environments" json:"environments"`
+}
+
+// Env is one deployment of an app.
+type Env struct {
+	Env               string    `yaml:"env" json:"env"`
+	Tier              string    `yaml:"tier" json:"tier"`
+	Agent             string    `yaml:"agent" json:"agent"`
+	Container         Container `yaml:"container" json:"container"`
+	URL               string    `yaml:"url" json:"url"`
+	Health            Health    `yaml:"health" json:"health"`
+	Workflows         Workflows `yaml:"workflows" json:"workflows"`
+	GitHubEnvironment string    `yaml:"github_environment" json:"github_environment"`
+	AllowSeed         *bool     `yaml:"allow_seed" json:"allow_seed"`
+}
+
+// Container selects a container by compose labels, never by ID.
+type Container struct {
+	ComposeProject string `yaml:"compose_project" json:"compose_project"`
+	Service        string `yaml:"service" json:"service"`
+}
+
+// Health configures the health check.
+type Health struct {
+	URL           string `yaml:"url" json:"url"`
+	Via           string `yaml:"via" json:"via"`
+	TLSSkipVerify bool   `yaml:"tls_skip_verify" json:"tls_skip_verify"`
+}
+
+// Workflows names workflow files in the app repo.
+type Workflows struct {
+	Deploy  string `yaml:"deploy" json:"deploy"`
+	Migrate string `yaml:"migrate" json:"migrate"`
+}
+
+// SeedAllowed applies the default: seeds are off for prod, on for nonprod.
+func (e Env) SeedAllowed() bool {
+	if e.AllowSeed != nil {
+		return *e.AllowSeed
+	}
+	return e.Tier != "prod"
+}
+
+// Parse decodes YAML strictly: unknown fields are errors, so typos are caught.
+func Parse(data []byte) (*Catalog, error) {
+	var c Catalog
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil {
+		return nil, fmt.Errorf("invalid YAML: %w", err)
+	}
+	return &c, nil
+}
+
+// LoadFile reads and parses a catalog file.
+func LoadFile(path string) (*Catalog, []byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	c, err := Parse(data)
+	return c, data, err
+}
