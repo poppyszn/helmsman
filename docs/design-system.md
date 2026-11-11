@@ -60,6 +60,7 @@ AI agents and developers must strictly follow these rules:
 | **Interactive Controls** | `#121215` / `bg-[#121215]` | Inputs, search bars, selects, command palette trigger. |
 | **Hover / Active States** | `#141418` to `#1c1c22` | Hovered cards, selected rows, active nav links. |
 | **Dividers** | `border-zinc-900/60` | Subtle hairline separation (tabs, table rows). |
+| **Links** | `text-sky-400`, hover `text-sky-300` | Every link or control that leaves the page or opens more detail (app URLs, GitHub run links, "Show log"), so it reads as clickable on the black canvas. |
 
 ---
 

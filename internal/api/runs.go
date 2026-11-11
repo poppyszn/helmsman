@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/poppyszn/helmsman/internal/actions"
@@ -189,6 +190,50 @@ func (s *Server) handleDeployments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, v)
+}
+
+func deployIDs(r *http.Request) (run, job int64, ok bool) {
+	run, err := strconv.ParseInt(chi.URLParam(r, "run"), 10, 64)
+	if err != nil || run <= 0 {
+		return 0, 0, false
+	}
+	if j := chi.URLParam(r, "job"); j != "" {
+		job, err = strconv.ParseInt(j, 10, 64)
+		if err != nil || job <= 0 {
+			return 0, 0, false
+		}
+	}
+	return run, job, true
+}
+
+// handleDeploymentJobs lists the jobs and steps of one deploy run.
+func (s *Server) handleDeploymentJobs(w http.ResponseWriter, r *http.Request) {
+	run, _, ok := deployIDs(r)
+	if !ok {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	jobs, err := s.Actions.DeploymentJobs(r.Context(), chi.URLParam(r, "app"), chi.URLParam(r, "env"), run)
+	if err != nil {
+		s.writeActionErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs})
+}
+
+// handleDeploymentJobLog returns the tail of one job's log, read live from GitHub.
+func (s *Server) handleDeploymentJobLog(w http.ResponseWriter, r *http.Request) {
+	run, job, ok := deployIDs(r)
+	if !ok {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	text, cut, err := s.Actions.DeploymentJobLog(r.Context(), s.actor(r), chi.URLParam(r, "app"), chi.URLParam(r, "env"), run, job)
+	if err != nil {
+		s.writeActionErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"content": text, "truncated": cut})
 }
 
 // handleApprovals lists pending production requests the caller may decide on.

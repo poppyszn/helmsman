@@ -445,6 +445,55 @@ func TestDeploymentsAndRevisionMismatch(t *testing.T) {
 	}
 }
 
+func TestDeploymentStepsAndLogs(t *testing.T) {
+	r := newRunsEnv(t)
+	r.gh.AddRun("acme-org/billing-api", "deploy.yml", "1111111111111111111111111111111111111111", "bob", "failure", time.Now().Add(-time.Hour))
+	var d struct {
+		Deployments []struct {
+			RunID int64 `json:"run_id"`
+		} `json:"deployments"`
+	}
+	if c := r.bob.json("GET", "/api/apps/billing-api/envs/staging/deployments", nil, &d); c != 200 || len(d.Deployments) != 1 {
+		t.Fatalf("deployments: %d %+v", c, d)
+	}
+	run := itoa(d.Deployments[0].RunID)
+	base := "/api/apps/billing-api/envs/staging/deployments/" + run
+
+	var jobs struct {
+		Jobs []struct {
+			ID    int64 `json:"id"`
+			Name  string
+			Steps []struct {
+				Name string `json:"name"`
+			} `json:"steps"`
+		} `json:"jobs"`
+	}
+	if c := r.bob.json("GET", base+"/jobs", nil, &jobs); c != 200 || len(jobs.Jobs) == 0 || len(jobs.Jobs[0].Steps) == 0 {
+		t.Fatalf("jobs and steps: %d %+v", c, jobs)
+	}
+	var lg struct {
+		Content string `json:"content"`
+	}
+	if c := r.bob.json("GET", base+"/jobs/"+itoa(jobs.Jobs[0].ID)+"/logs", nil, &lg); c != 200 || lg.Content == "" {
+		t.Fatalf("job log: %d %q", c, lg.Content)
+	}
+	// Opening a log is audited without its text.
+	var n int
+	if err := r.st.Pool.QueryRow(context.Background(), `SELECT count(*) FROM audit_events WHERE action = 'deploy.logs.view' AND actor_id = 'bob'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("audit rows for the log view: %d %v", n, err)
+	}
+	// Only runs of this environment's deploy workflow are readable, and a job must belong to the run.
+	if c := r.bob.json("GET", "/api/apps/billing-api/envs/staging/deployments/999999/jobs", nil, nil); c != 404 {
+		t.Fatalf("a run that is not a deploy run of this env: %d", c)
+	}
+	if c := r.bob.json("GET", base+"/jobs/999999/logs", nil, nil); c != 404 {
+		t.Fatalf("a job that is not in the run: %d", c)
+	}
+	if c := r.bob.json("GET", "/api/apps/billing-api/envs/staging/deployments/abc/jobs", nil, nil); c != 404 {
+		t.Fatalf("a malformed run id: %d", c)
+	}
+}
+
 func TestRunsAreScopedToTheirEnv(t *testing.T) {
 	r := newRunsEnv(t)
 	r.bind("user", itoa(r.userID("bob")), "viewer", "billing-api", "prod")

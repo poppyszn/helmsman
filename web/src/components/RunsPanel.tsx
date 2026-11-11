@@ -163,7 +163,7 @@ function RunRow({ run, base, tz, onChanged }: { run: Run; base: string; tz: stri
           )}
           {run.error && <p className="rounded-lg bg-rose-500/10 p-3 text-xs text-rose-300 font-mono">{run.error}</p>}
           {run.status === "unknown" && (
-            <a href={run.workflow_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-mono text-indigo-300 hover:text-white">
+            <a href={run.workflow_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-mono text-sky-400 hover:text-sky-300">
               Open the workflow on GitHub
               <ExternalLink className="size-3.5" strokeWidth={1.5} />
             </a>
@@ -205,7 +205,7 @@ function RunRow({ run, base, tz, onChanged }: { run: Run; base: string; tz: stri
             </div>
           )}
           {run.gh_run_url && (
-            <a href={run.gh_run_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400 hover:text-white">
+            <a href={run.gh_run_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-mono text-sky-400 hover:text-sky-300">
               View run on GitHub
               <ExternalLink className="size-3.5" strokeWidth={1.5} />
             </a>

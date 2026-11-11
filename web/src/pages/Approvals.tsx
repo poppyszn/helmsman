@@ -36,7 +36,7 @@ export default function Approvals() {
         <div className="space-y-2">
           {runs.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-[#0a0a0d] px-4 py-3.5">
-              <Link to={`/apps/${r.app}`} className="font-mono text-sm font-semibold text-white hover:underline">
+              <Link to={`/apps/${r.app}`} className="font-mono text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline">
                 {r.app}/{r.env}
               </Link>
               <span className="font-mono text-sm text-zinc-200">{r.action}</span>

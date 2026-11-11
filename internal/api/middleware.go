@@ -85,7 +85,8 @@ func (s *Server) guard(rt Route) http.Handler {
 			writeErr(w, http.StatusTooManyRequests, "too many actions, slow down and try again in a minute")
 			return
 		}
-		if (strings.HasPrefix(r.URL.Path, "/ws/") || strings.HasSuffix(r.URL.Path, "/logs/history")) && !s.logLimiter.allow(strconv.FormatInt(user.ID, 10)) {
+		if (strings.HasPrefix(r.URL.Path, "/ws/") || strings.HasSuffix(r.URL.Path, "/logs/history") ||
+			(strings.Contains(r.URL.Path, "/deployments/") && strings.HasSuffix(r.URL.Path, "/logs"))) && !s.logLimiter.allow(strconv.FormatInt(user.ID, 10)) {
 			w.Header().Set("Retry-After", "60")
 			writeErr(w, http.StatusTooManyRequests, "too many log streams opened, try again in a minute")
 			return

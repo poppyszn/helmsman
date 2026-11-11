@@ -123,7 +123,7 @@ export function LogHistory({ app, env, tz }: { app: string; env: string; tz: str
         <p className="text-sm text-zinc-300">Log history is not connected.</p>
         <p className="mt-1.5 text-xs font-mono text-zinc-500">Live tail still works.</p>
         {me?.can.admin ? (
-          <Link to="/admin/integrations" className="mt-3 inline-block text-sm text-white underline underline-offset-4 hover:text-zinc-300">
+          <Link to="/admin/integrations" className="mt-3 inline-block text-sm text-sky-400 underline underline-offset-4 hover:text-sky-300">
             Connect Loki in Integrations
           </Link>
         ) : (

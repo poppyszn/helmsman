@@ -101,8 +101,24 @@ export type RunStatus =
   | "cancelled"
   | "unknown";
 
-export type RunStep = { name: string; status: string; conclusion: string | null; number: number };
-export type RunJob = { id: number; name: string; status: string; conclusion: string | null; html_url: string; steps: RunStep[] | null };
+export type RunStep = {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  number: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+};
+export type RunJob = {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  steps: RunStep[] | null;
+};
 
 export type Run = {
   id: string;
