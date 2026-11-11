@@ -546,7 +546,6 @@ func TestLogsUnavailableForNonFileDriver(t *testing.T) {
 	}
 }
 
-
 // An agent that connects and then goes silent (dead network, frozen host) is offline
 // after the silence limit, without any close frame.
 func TestSilentAgentIsMarkedOffline(t *testing.T) {

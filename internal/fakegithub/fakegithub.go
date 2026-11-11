@@ -1,5 +1,5 @@
 // Package fakegithub is an in-memory stand-in for the parts of GitHub that Helmsman
-// uses: OAuth login and the user, org and team APIs. It is scriptable at runtime
+// uses: OAuth login, the user, org and team APIs, and the GitHub App and Actions APIs (installations, workflow dispatch, runs, jobs, logs). It is scriptable at runtime
 // through /_fake endpoints and is used by dev compose and by tests.
 package fakegithub
 
@@ -44,6 +44,7 @@ type Server struct {
 	codes  map[string]codeInfo
 	tokens map[string]string // token -> login
 	down   bool
+	act    *actionsState
 	mux    *http.ServeMux
 }
 
@@ -81,6 +82,7 @@ func NewWithUsers(us []User) *Server {
 	m.HandleFunc("PUT /_fake/users/{login}", s.putUser)
 	m.HandleFunc("DELETE /_fake/tokens/{login}", s.revokeTokens)
 	m.HandleFunc("PUT /_fake/down", s.setDown)
+	s.registerActions(m)
 	s.mux = m
 	return s
 }

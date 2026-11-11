@@ -62,6 +62,21 @@ func (s *Server) Routes() []Route {
 		{post, "/api/apps/{app}/envs/{env}/restart", "action.restart", ScopeEnv, s.handleRestart, false},
 		{get, "/ws/apps/{app}/envs/{env}/logs", "logs.view", ScopeEnv, s.handleLogsWS, false},
 
+		// M3: migrations, seeds and deployments through GitHub Actions. Reject, cancel and rerun
+		// need only deploy.view here; the service then checks the permission of the run's action
+		// (or approver status, or that the caller is the requester withdrawing their own request).
+		{get, "/api/apps/{app}/envs/{env}/runs", "deploy.view", ScopeEnv, s.handleListRuns, false},
+		{get, "/api/apps/{app}/envs/{env}/runs/{id}", "deploy.view", ScopeEnv, s.handleGetRun, false},
+		{get, "/api/apps/{app}/envs/{env}/runs/{id}/logs", "deploy.view", ScopeEnv, s.handleRunLogs, false},
+		{post, "/api/apps/{app}/envs/{env}/actions/migrate", "action.migrate", ScopeEnv, s.startRun("migrate"), false},
+		{post, "/api/apps/{app}/envs/{env}/actions/seed", "action.seed", ScopeEnv, s.startRun("seed"), false},
+		{post, "/api/apps/{app}/envs/{env}/runs/{id}/approve", "action.approve", ScopeEnv, s.handleApprove(), false},
+		{post, "/api/apps/{app}/envs/{env}/runs/{id}/reject", "deploy.view", ScopeEnv, s.handleReject(), false},
+		{post, "/api/apps/{app}/envs/{env}/runs/{id}/cancel", "deploy.view", ScopeEnv, s.handleCancel(), false},
+		{post, "/api/apps/{app}/envs/{env}/runs/{id}/rerun", "deploy.view", ScopeEnv, s.handleRerun, false},
+		{get, "/api/apps/{app}/envs/{env}/deployments", "deploy.view", ScopeEnv, s.handleDeployments, false},
+		{get, "/api/approvals", "action.approve", ScopeAny, s.handleApprovals, false},
+
 		{get, "/api/admin/users", "admin.access", ScopeGlobal, s.handleListUsers, false},
 		{get, "/api/admin/roles", "admin.access", ScopeGlobal, s.handleListRoles, false},
 		{get, "/api/admin/bindings", "admin.access", ScopeGlobal, s.handleListBindings, false},
@@ -69,6 +84,8 @@ func (s *Server) Routes() []Route {
 		{del, "/api/admin/bindings/{id}", "admin.access", ScopeGlobal, s.handleDeleteBinding, false},
 		{get, "/api/admin/catalog", "admin.access", ScopeGlobal, s.handleCatalogStatus, false},
 		{post, "/api/admin/catalog/reload", "admin.access", ScopeGlobal, s.handleCatalogReload, false},
+		{get, "/api/admin/github", "admin.access", ScopeGlobal, s.handleGitHubStatus, false},
+		{post, "/api/admin/github/check", "admin.access", ScopeGlobal, s.handleGitHubCheck, false},
 		{get, "/api/admin/audit", "audit.view", ScopeGlobal, s.handleAudit, false},
 
 		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},

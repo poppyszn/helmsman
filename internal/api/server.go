@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/poppyszn/helmsman/internal/actions"
 	"github.com/poppyszn/helmsman/internal/agenthub"
 	"github.com/poppyszn/helmsman/internal/audit"
 	"github.com/poppyszn/helmsman/internal/auth"
@@ -33,6 +34,7 @@ type Deps struct {
 	Auth    *auth.Service
 	Catalog *catalog.Manager
 	Hub     *agenthub.Hub
+	Actions *actions.Service
 	Logs    agenthub.LogSource
 	UI      fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
