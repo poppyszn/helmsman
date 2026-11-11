@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/poppyszn/helmsman/internal/api"
+	"github.com/poppyszn/helmsman/internal/audit"
+	"github.com/poppyszn/helmsman/internal/auth"
+	"github.com/poppyszn/helmsman/internal/catalog"
 	"github.com/poppyszn/helmsman/internal/config"
 	"github.com/poppyszn/helmsman/internal/store"
 	"github.com/poppyszn/helmsman/web"
@@ -42,7 +45,17 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	srv, err := api.New(st, web.Dist())
+	aw := &audit.Writer{Pool: st.Pool}
+	authSvc := auth.NewService(cfg, st, aw)
+	cat := catalog.NewManager(st.Pool, cfg.CatalogPath, aw, st.AgentExists)
+	if err := cat.Reload(ctx, "startup", true); err != nil {
+		// An invalid catalog never stops the server; the error is shown on the admin page.
+		log.Error("catalog rejected", "err", err)
+	}
+	go cat.Watch(ctx, 30*time.Second)
+	go authSvc.RunRefresh(ctx, 15*time.Minute)
+
+	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, UI: web.Dist()})
 	if err != nil {
 		return err
 	}

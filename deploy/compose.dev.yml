@@ -16,6 +16,20 @@ services:
       retries: 20
     restart: unless-stopped
 
+  postgres-test:
+    profiles: [test]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: helmsman
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: helmsman
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helmsman -d helmsman"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
   server:
     build: { context: .., dockerfile: deploy/docker/server.dev.Dockerfile }
     working_dir: /src
@@ -28,6 +42,18 @@ services:
       IDP_BASE_URL: http://localhost:5173
       IDP_DATABASE_URL: postgres://helmsman:${POSTGRES_PASSWORD:-helmsman-dev}@postgres:5432/helmsman?sslmode=disable
       IDP_GITHUB_MODE: fake
+      # Dev-only throwaway keys. Real deployments generate their own (see .env.example).
+      IDP_SESSION_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+      IDP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000002"
+      IDP_ALLOWED_ORGS: acme-org
+      IDP_BOOTSTRAP_ADMIN_GITHUB_IDS: "1001"
+      IDP_CATALOG_PATH: /src/catalog/apps.yaml
+      GITHUB_OAUTH_CLIENT_ID: dev-client
+      GITHUB_OAUTH_CLIENT_SECRET: dev-secret
+      # The browser is sent to localhost:8090; the server talks to fake-github on the compose network.
+      IDP_GITHUB_AUTH_URL: http://localhost:8090/login/oauth/authorize
+      IDP_GITHUB_TOKEN_URL: http://fake-github:8090/login/oauth/access_token
+      IDP_GITHUB_API_URL: http://fake-github:8090
       IDP_DISPLAY_TZ: ${IDP_DISPLAY_TZ:-Africa/Lagos}
     ports: ["127.0.0.1:8080:8080"]
     healthcheck:
@@ -37,6 +63,7 @@ services:
       retries: 60
     depends_on:
       postgres: { condition: service_healthy }
+      fake-github: { condition: service_started }
     restart: unless-stopped
 
   web:
