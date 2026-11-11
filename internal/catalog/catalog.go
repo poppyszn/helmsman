@@ -34,6 +34,14 @@ type Env struct {
 	Workflows         Workflows `yaml:"workflows" json:"workflows"`
 	GitHubEnvironment string    `yaml:"github_environment" json:"github_environment"`
 	AllowSeed         *bool     `yaml:"allow_seed" json:"allow_seed"`
+	Logs              Logs      `yaml:"logs" json:"logs"`
+}
+
+// Logs says where this environment's history lives besides its container: FaroApp is the app name the
+// static or single page app gives Grafana Faro, so browser logs and errors show up beside the
+// container logs. Its Faro environment must equal this env's name.
+type Logs struct {
+	FaroApp string `yaml:"faro_app" json:"faro_app"`
 }
 
 // Container selects a container by compose labels, never by ID.

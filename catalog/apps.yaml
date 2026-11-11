@@ -13,6 +13,7 @@ apps:
         workflows: { deploy: deploy.yml, migrate: migrate.yml }
         github_environment: staging
         allow_seed: true
+        logs: { faro_app: demo-app }
       # A dev stand-in for production so the approval flow can be tried locally.
       - env: prod
         tier: prod
@@ -22,3 +23,17 @@ apps:
         health: { url: http://demo-app-2:8080/health, via: agent }
         workflows: { deploy: deploy.yml, migrate: migrate.yml }
         github_environment: production
+  - id: static-demo
+    name: Static Demo
+    repo: acme-org/demo-app
+    environments:
+      - env: staging
+        tier: nonprod
+        agent: dev-agent
+        container: { compose_project: helmsman-dev, service: static-demo }
+        url: http://localhost:9003
+        health: { url: http://static-demo/, via: agent }
+        workflows: { migrate: migrate.yml }
+        github_environment: staging
+        # The page posts Faro telemetry with this app name and the environment "staging".
+        logs: { faro_app: static-demo }

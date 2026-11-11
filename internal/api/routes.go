@@ -63,6 +63,7 @@ func (s *Server) Routes() []Route {
 		{get, "/api/apps/{app}/envs/{env}/status", "app.view", ScopeEnv, s.handleEnvStatus, false},
 		{post, "/api/apps/{app}/envs/{env}/restart", "action.restart", ScopeEnv, s.handleRestart, false},
 		{get, "/ws/apps/{app}/envs/{env}/logs", "logs.view", ScopeEnv, s.handleLogsWS, false},
+		{get, "/api/apps/{app}/envs/{env}/logs/history", "logs.view", ScopeEnv, s.handleLogHistory, false},
 
 		// M3: migrations, seeds and deployments through GitHub Actions. Reject, cancel and rerun
 		// need only deploy.view here; the service then checks the permission of the run's action

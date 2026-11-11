@@ -4,13 +4,18 @@ GO_NET := docker run --rm --network helmsman-dev_default -v $(CURDIR):/src -w /s
 NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 
 .DEFAULT_GOAL := help
-.PHONY: help e2e-server backup-test up up-github down logs build test lint e2e seed-dev web-build
+.PHONY: help up-logs e2e-server backup-test up up-github down logs build test lint e2e seed-dev web-build
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
 backup-test: ## Backup the dev database, restore it into a scratch database and verify (restore drill)
 	COMPOSE_FILE=deploy/compose.dev.yml deploy/backup/verify-restore.sh
+
+up-logs: ## Dev stack plus Loki and Alloy, for log history (see docs/logs.md)
+	IDP_LOKI_URL=http://loki:3100 COMPOSE_PROFILES=logs $(COMPOSE_DEV) up -d --build --wait --wait-timeout 180
+	@$(MAKE) --no-print-directory seed-dev
+	@echo "UI: http://localhost:5173  Loki: http://localhost:3100  Faro receiver: http://localhost:12347/collect"
 
 up-github: ## Dev stack with a real GitHub App for runs (needs GITHUB_APP_ID in .env and deploy/secrets/github-app.pem)
 	$(COMPOSE_DEV) --env-file .env -f deploy/compose.github-app.yml up -d --build --wait --wait-timeout 180
@@ -48,6 +53,7 @@ e2e: ## Playwright end to end tests against the dev stack (starts it if needed),
 	docker build -q -t helmsman-e2e:local e2e >/dev/null
 	docker run --rm --network helmsman-dev_default --ipc=host -v $(CURDIR)/e2e:/e2e -w /e2e \
 		-e E2E_BASE_URL=http://localhost:5173 -e E2E_FAKE_GITHUB=http://localhost:8090 \
+		-e E2E_FARO_URL=http://alloy:12347 -e E2E_STATIC_URL=http://static-demo \
 		helmsman-e2e:local ./run-dev.sh $(E2E_ARGS)
 
 e2e-server: ## Playwright checks of a real deployment. E2E_SERVER_URL, E2E_BREAKGLASS_PASSWORD, E2E_BREAKGLASS_TOTP_SECRET

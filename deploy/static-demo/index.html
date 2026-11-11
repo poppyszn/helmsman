@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Static demo</title>
+<h1>Static demo app</h1>
+<p>An nginx container serving this page, the way a static web app runs. Every request leaves an nginx access
+line in the container log. This page also sends browser telemetry to the Faro receiver, so the two kinds of
+log show up side by side in Helmsman.</p>
+<button id="err">Send a browser error</button>
+<button id="evt">Send a browser event</button>
+<script>
+  // A real app uses the Grafana Faro Web SDK:
+  //   initializeFaro({ url: "https://<helmsman host>/faro/collect", app: { name: "static-demo", environment: "staging" } })
+  // This page posts the same payload by hand so it needs no build step.
+  const url = "http://localhost:12347/collect";
+  const meta = { sdk: { name: "demo", version: "0" }, app: { name: "static-demo", version: "1.0.0", environment: "staging" },
+                 session: { id: Math.random().toString(16).slice(2) }, page: { url: location.href } };
+  const send = (body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meta, ...body }) });
+  const now = () => new Date().toISOString();
+  send({ logs: [{ message: "page loaded", level: "info", timestamp: now() }] });
+  addEventListener("error", (e) => send({ exceptions: [{ type: "Error", value: e.message, timestamp: now() }] }));
+  document.getElementById("err").onclick = () => send({ exceptions: [{ type: "TypeError", value: "button handler failed", timestamp: now() }] });
+  document.getElementById("evt").onclick = () => send({ events: [{ name: "button_click", attributes: { id: "evt" }, timestamp: now() }] });
+</script>
