@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/poppyszn/helmsman/internal/gh"
@@ -193,6 +194,7 @@ func (s *Service) captureLogs(ctx context.Context, r store.ActionRun, jobs []gh.
 			s.Log.Warn("job logs unavailable", "run", r.ID, "job", j.ID, "err", err)
 			continue
 		}
+		text = strings.TrimPrefix(text, "\ufeff") // real GitHub logs start with a byte order mark
 		budget -= len(text)
 		out = append(out, store.RunLog{JobID: j.ID, JobName: j.Name, Content: text, Truncated: cut})
 	}
