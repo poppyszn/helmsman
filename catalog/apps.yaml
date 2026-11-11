@@ -13,3 +13,12 @@ apps:
         workflows: { deploy: deploy.yml, migrate: migrate.yml }
         github_environment: staging
         allow_seed: true
+      # A dev stand-in for production so the approval flow can be tried locally.
+      - env: prod
+        tier: prod
+        agent: dev-agent
+        container: { compose_project: helmsman-dev, service: demo-app-2 }
+        url: http://localhost:9002
+        health: { url: http://demo-app-2:8080/health, via: agent }
+        workflows: { deploy: deploy.yml, migrate: migrate.yml }
+        github_environment: production

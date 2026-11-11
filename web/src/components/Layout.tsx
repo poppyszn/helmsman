@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Anchor,
   Layers,
@@ -8,6 +8,8 @@ import {
   Shield,
   BookOpen,
   Cpu,
+  GitBranch,
+  ShieldCheck,
   FileText,
   LogOut,
   PanelLeftClose,
@@ -24,6 +26,14 @@ export default function Layout() {
   const location = useLocation();
   const [collapsed, setCollapsed] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  const approvals = useQuery<{ runs: unknown[] }>({
+    queryKey: ["approvals"],
+    queryFn: () => api("/api/approvals"),
+    enabled: !!me?.can.approve,
+    refetchInterval: 15_000,
+  });
+  const pending = approvals.data?.runs.length ?? 0;
 
   if (!me) return null;
 
@@ -95,6 +105,19 @@ export default function Layout() {
             <NavLink to="/admin/catalog" className={navItemClass} title="Catalog">
               <BookOpen className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
               {!collapsed && <span>Catalog</span>}
+            </NavLink>
+          )}
+          {me.can.approve && (
+            <NavLink to="/approvals" className={navItemClass} title="Approvals">
+              <ShieldCheck className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+              {!collapsed && <span>Approvals</span>}
+              {!collapsed && pending > 0 && <span className="ml-auto rounded bg-amber-500/15 px-1.5 text-xs font-mono text-amber-300">{pending}</span>}
+            </NavLink>
+          )}
+          {me.can.admin && (
+            <NavLink to="/admin/github" className={navItemClass} title="GitHub">
+              <GitBranch className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+              {!collapsed && <span>GitHub</span>}
             </NavLink>
           )}
           {me.can.agents && (

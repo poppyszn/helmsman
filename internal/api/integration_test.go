@@ -19,6 +19,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/poppyszn/helmsman/internal/actions"
 	"github.com/poppyszn/helmsman/internal/agenthub"
 	"github.com/poppyszn/helmsman/internal/api"
 	"github.com/poppyszn/helmsman/internal/audit"
@@ -77,6 +78,7 @@ type env struct {
 	catPath string
 	cfg     config.Config
 	hub     *agenthub.Hub
+	act     *actions.Service
 }
 
 func newEnv(t *testing.T) *env {
@@ -141,7 +143,8 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e.hub = agenthub.New(st, aw, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Logs: e.hub,
+	e.act = newTestActions(t, st, aw, ghSrv.URL)
+	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub,
 		LogRecheck: 300 * time.Millisecond, UI: fstest.MapFS{"index.html": {Data: []byte("x")}}})
 	if err != nil {
 		t.Fatal(err)
@@ -436,7 +439,7 @@ func TestTeamBindingsAndUnion(t *testing.T) {
 
 func TestEveryRouteDeniesWithoutPermission(t *testing.T) {
 	e := newEnv(t)
-	srv, _ := api.New(api.Deps{Cfg: e.cfg, DB: e.st, Store: e.st, Audit: &audit.Writer{Pool: e.st.Pool}, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Logs: e.hub, UI: fstest.MapFS{}})
+	srv, _ := api.New(api.Deps{Cfg: e.cfg, DB: e.st, Store: e.st, Audit: &audit.Writer{Pool: e.st.Pool}, Auth: e.auth, Catalog: e.cat, Hub: e.hub, Actions: e.act, Logs: e.hub, UI: fstest.MapFS{}})
 	anon, nobody := e.client(), e.client()
 	nobody.login("carol") // signed in, zero bindings
 

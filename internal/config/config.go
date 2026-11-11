@@ -27,6 +27,13 @@ type Config struct {
 
 	OAuthClientID     string
 	OAuthClientSecret string
+	// GitHub App used for workflow dispatch (M3). In fake mode an ephemeral key is generated.
+	GitHubAppID      string
+	GitHubAppKeyPath string
+	// GitHubAppAPIURL is the REST root used for the App and Actions calls. It defaults to
+	// GitHubAPIURL. Setting it lets the dev stack sign in through fake-github while
+	// dispatching to the real GitHub.
+	GitHubAppAPIURL string
 	// GitHub endpoints. Defaults point at github.com; fake mode points at fake-github.
 	GitHubAuthURL  string // browser-facing authorize endpoint
 	GitHubTokenURL string // server-side token endpoint
@@ -60,9 +67,15 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		CatalogPath:       get("IDP_CATALOG_PATH", "catalog/apps.yaml"),
 		OAuthClientID:     get("GITHUB_OAUTH_CLIENT_ID", ""),
 		OAuthClientSecret: get("GITHUB_OAUTH_CLIENT_SECRET", ""),
+		GitHubAppID:       get("GITHUB_APP_ID", ""),
+		GitHubAppKeyPath:  get("GITHUB_APP_PRIVATE_KEY_PATH", ""),
+		GitHubAppAPIURL:   strings.TrimRight(get("IDP_GITHUB_APP_API_URL", ""), "/"),
 		GitHubAuthURL:     get("IDP_GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize"),
 		GitHubTokenURL:    get("IDP_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
 		GitHubAPIURL:      strings.TrimRight(get("IDP_GITHUB_API_URL", "https://api.github.com"), "/"),
+	}
+	if c.GitHubAppAPIURL == "" {
+		c.GitHubAppAPIURL = c.GitHubAPIURL
 	}
 	for _, o := range strings.Split(get("IDP_ALLOWED_ORGS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {

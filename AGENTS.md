@@ -19,7 +19,7 @@
 - **M0: Foundation (Completed)**: Dev compose stack, PostgreSQL schema with goose migrations, Chi HTTP router, embedded React SPA shell, Dockerfiles, and GitHub Actions CI.
 - **M1: Auth, Catalog, RBAC, Admin (Completed)**: GitHub OAuth flow (PKCE + state), org membership refresh worker (every 15m), dynamic app catalog parser (`catalog/apps.yaml`) with hot-reload and validation, RBAC engine (user and team bindings), and admin views (Users, Roles, Bindings, Catalog, Audit).
 - **M2: Agent, Status, Logs, Restart (Completed)**: Dedicated host agent daemon, join-token exchange, long-lived credentials, Docker socket client (containers, logs, restart, events), agent hub over WebSocket, health checking (`via: server` and `via: agent`), crash loop detection, live log viewer, and container restart dialogs.
-- **M3: GitHub Runs (Current / Active)**: Triggering and tracking GitHub Actions workflows (migrations, seeds, deploys) with correlation IDs, approval workflows, status synchronization, and GitHub App integration.
+- **M3: GitHub Runs (Built, awaiting real GitHub verification)**: Triggering and tracking GitHub Actions workflows (migrations, seeds, deploys) with correlation IDs, approval workflows, status synchronization, and GitHub App integration.
 - **M4: Production Readiness & Operations (Upcoming)**: Backup and restore procedures, split database roles (migration owner vs runtime app), production deployment automation, and break-glass admin.
 
 ---

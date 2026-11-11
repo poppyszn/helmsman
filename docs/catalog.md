@@ -48,3 +48,7 @@ Catalog validation rejects an environment whose `agent` is not registered. Creat
 ## Health checks
 
 `health.via: server` probes from the IDP host. `via: agent` probes from the app server through its agent, for URLs only that host can reach. The agent only probes URLs listed under `health_urls` in its own `agent.yaml`, and the URL must match exactly. A response below 400 within 2 s is healthy, slower is degraded, and two failures in a row mean down.
+
+## Workflows
+
+`workflows.migrate` is required. Migrations and seeds both run it, with the input `command` set to `migrate` or `seed`. `workflows.deploy` is optional. When it is set, the Deployments tab lists its recent runs and shows a badge if the latest successful deploy commit differs from the running image revision (the `org.opencontainers.image.revision` label). `github_environment` is passed as the workflow's `environment` input. Both workflows must exist in `.github/workflows` and the migrate workflow must have a `workflow_dispatch` trigger, or actions for that repository are disabled. See `examples/workflows/migrate.yml` for the inputs and the `run-name` that Helmsman uses to find its run.

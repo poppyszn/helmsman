@@ -4,10 +4,15 @@ GO_NET := docker run --rm --network helmsman-dev_default -v $(CURDIR):/src -w /s
 NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs build test lint e2e seed-dev web-build
+.PHONY: help up up-github down logs build test lint e2e seed-dev web-build
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+
+up-github: ## Dev stack with a real GitHub App for runs (needs GITHUB_APP_ID in .env and deploy/secrets/github-app.pem)
+	$(COMPOSE_DEV) --env-file .env -f deploy/compose.github-app.yml up -d --build --wait --wait-timeout 180
+	@$(MAKE) --no-print-directory seed-dev
+	@echo "UI: http://localhost:5173  runs go to real GitHub"
 
 up: ## Start the dev stack and seed dev data (UI on http://localhost:5173)
 	$(COMPOSE_DEV) up -d --build --wait --wait-timeout 180

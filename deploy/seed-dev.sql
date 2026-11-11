@@ -23,3 +23,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO role_bindings (subject_type, subject, role_id, app_id, env)
 SELECT 'team', 'acme-org/leads', r.id, '*', '*' FROM roles r WHERE r.name='approver'
 ON CONFLICT DO NOTHING;
+
+-- Prod stand-in (demo-app/prod): bob can request migrations, erin's team approves them.
+-- Wildcard env bindings never reach prod, so these are explicit.
+INSERT INTO role_bindings (subject_type, subject, role_id, app_id, env)
+SELECT 'user', u.id::text, r.id, 'demo-app', 'prod' FROM users u, roles r WHERE u.github_id=1002 AND r.name='operator'
+ON CONFLICT DO NOTHING;
+INSERT INTO role_bindings (subject_type, subject, role_id, app_id, env)
+SELECT 'team', 'acme-org/leads', r.id, 'demo-app', 'prod' FROM roles r WHERE r.name='approver'
+ON CONFLICT DO NOTHING;
