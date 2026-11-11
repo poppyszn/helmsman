@@ -1,0 +1,14 @@
+# Dev stack plus a real GitHub App. Sign-in still goes through fake-github, but migrations
+# and seeds are dispatched to real GitHub. Use it with:
+#   docker compose -f deploy/compose.dev.yml -f deploy/compose.github-app.yml up -d --build
+# Needs GITHUB_APP_ID in .env and the App's private key at deploy/secrets/github-app.pem
+# (both are gitignored). See docs/runbook.md.
+services:
+  server:
+    environment:
+      GITHUB_APP_ID: ${GITHUB_APP_ID:?set GITHUB_APP_ID in .env}
+      GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app.pem
+      IDP_GITHUB_APP_API_URL: https://api.github.com
+      IDP_CATALOG_PATH: /src/examples/catalog.real-github.yaml
+    volumes:
+      - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro

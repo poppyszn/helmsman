@@ -62,7 +62,7 @@ func run(log *slog.Logger) error {
 	go authSvc.RunRefresh(ctx, 15*time.Minute)
 
 	hub := agenthub.New(st, aw, log)
-	ghAPI := gh.NewClient(cfg.GitHubAPIURL, githubTokens(cfg, log))
+	ghAPI := gh.NewClient(cfg.GitHubAppAPIURL, githubTokens(cfg, log))
 	actSvc := actions.New(st, ghAPI, aw, log)
 	go actSvc.WatchRepos(ctx, 10*time.Minute)
 	go actSvc.Run(ctx)
@@ -109,7 +109,7 @@ func prune(ctx context.Context, st *store.Store, log *slog.Logger) {
 func githubTokens(cfg config.Config, log *slog.Logger) gh.TokenSource {
 	var key *rsa.PrivateKey
 	switch {
-	case cfg.GitHubMode == "fake":
+	case cfg.GitHubMode == "fake" && (cfg.GitHubAppID == "" || cfg.GitHubAppKeyPath == ""):
 		// fake-github does not verify signatures, so an ephemeral key is enough for dev.
 		k, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
@@ -135,7 +135,7 @@ func githubTokens(cfg config.Config, log *slog.Logger) gh.TokenSource {
 	if id == "" {
 		id = "1"
 	}
-	return &gh.AppAuth{AppID: id, Key: key, APIURL: cfg.GitHubAPIURL}
+	return &gh.AppAuth{AppID: id, Key: key, APIURL: cfg.GitHubAppAPIURL}
 }
 
 type unconfigured string

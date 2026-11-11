@@ -8,3 +8,5 @@ bin/
 coverage.out
 *.tsbuildinfo
 .DS_Store
+deploy/secrets/*
+!deploy/secrets/.gitkeep
