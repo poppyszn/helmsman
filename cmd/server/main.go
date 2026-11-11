@@ -42,14 +42,22 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Migrations run as the table owner. The server itself runs as the least-privilege role, which
+	// cannot update or delete audit events.
+	owner, err := store.Open(ctx, cfg.MigrateDatabaseURL)
+	if err != nil {
+		return err
+	}
+	err = owner.Migrate(ctx)
+	owner.Close()
+	if err != nil {
+		return err
+	}
 	st, err := store.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	if err := st.Migrate(ctx); err != nil {
-		return err
-	}
 
 	aw := &audit.Writer{Pool: st.Pool}
 	authSvc := auth.NewService(cfg, st, aw)
@@ -88,12 +96,12 @@ func run(log *slog.Logger) error {
 	return nil
 }
 
-// prune keeps 14 days of container events and health checks.
+// prune applies the retention windows every 6 hours.
 func prune(ctx context.Context, st *store.Store, log *slog.Logger) {
 	t := time.NewTicker(6 * time.Hour)
 	defer t.Stop()
 	for {
-		if err := st.Prune(ctx, time.Now().Add(-14*24*time.Hour)); err != nil && ctx.Err() == nil {
+		if err := st.Prune(ctx, time.Now()); err != nil && ctx.Err() == nil {
 			log.Error("prune", "err", err)
 		}
 		select {

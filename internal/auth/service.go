@@ -27,6 +27,7 @@ const (
 
 // Service implements login, logout and membership checks.
 type Service struct {
+	bg    breakglassState
 	Cfg   config.Config
 	Store *store.Store
 	Audit *audit.Writer

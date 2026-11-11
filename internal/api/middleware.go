@@ -5,6 +5,8 @@ import (
 	"crypto/subtle"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,6 +77,17 @@ func (s *Server) guard(rt Route) http.Handler {
 			return
 		}
 		if rt.Permission != Authenticated && !s.permitted(w, r, rt, p) {
+			return
+		}
+		// Per-user limits after authorization, so anonymous or refused calls cannot burn someone's budget.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && !s.actionLimiter.allow(strconv.FormatInt(user.ID, 10)) {
+			w.Header().Set("Retry-After", "60")
+			writeErr(w, http.StatusTooManyRequests, "too many actions, slow down and try again in a minute")
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/ws/") && !s.logLimiter.allow(strconv.FormatInt(user.ID, 10)) {
+			w.Header().Set("Retry-After", "60")
+			writeErr(w, http.StatusTooManyRequests, "too many log streams opened, try again in a minute")
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKey{}, reqCtx{User: user, Principal: p, SessionHash: hash})

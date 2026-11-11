@@ -59,3 +59,18 @@ func TestPlainHTTPDevCookies(t *testing.T) {
 		t.Fatal("http dev must not set Secure")
 	}
 }
+
+func TestBreakglassNeedsItsSecrets(t *testing.T) {
+	base := map[string]string{"IDP_BASE_URL": "https://x", "IDP_DATABASE_URL": "postgres://x", "IDP_SESSION_KEY": strings.Repeat("a", 64),
+		"IDP_ENCRYPTION_KEY": strings.Repeat("b", 64), "IDP_ALLOWED_ORGS": "o", "IDP_BREAKGLASS_ENABLED": "true"}
+	look := func(m map[string]string) func(string) (string, bool) {
+		return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
+	}
+	if _, err := FromLookup(look(base)); err == nil {
+		t.Fatal("enabling break-glass without secrets must fail startup")
+	}
+	base["IDP_BREAKGLASS_PASSWORD_HASH"], base["IDP_BREAKGLASS_TOTP_SECRET"] = "$2a$12$x", "JBSWY3DPEHPK3PXP"
+	if c, err := FromLookup(look(base)); err != nil || !c.BreakglassEnabled || c.BreakglassUser != "breakglass" {
+		t.Fatalf("%v %+v", err, c)
+	}
+}

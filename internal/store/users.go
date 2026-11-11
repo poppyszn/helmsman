@@ -131,7 +131,7 @@ func (s *Store) RefreshTargets(ctx context.Context) ([]RefreshTarget, error) {
 	rows, err := s.Pool.Query(ctx, `
 		SELECT DISTINCT u.id, u.login, u.gh_token_enc FROM users u
 		JOIN sessions x ON x.user_id=u.id AND x.revoked_at IS NULL AND x.expires_at > now()
-		WHERE u.disabled_at IS NULL`)
+		WHERE u.disabled_at IS NULL AND u.gh_token_enc IS NOT NULL`)
 	if err != nil {
 		return nil, err
 	}
@@ -193,4 +193,16 @@ func (s *Store) Principal(ctx context.Context, u User) (rbac.Principal, error) {
 		p.Bindings = append(p.Bindings, b)
 	}
 	return p, rows.Err()
+}
+
+// UpsertBreakglass returns the local emergency admin user, creating it on first use. It has no
+// GitHub identity (github_id -1) and no stored token, so the membership refresh never touches it.
+func (s *Store) UpsertBreakglass(ctx context.Context, login string) (User, error) {
+	var u User
+	err := scanUser(s.Pool.QueryRow(ctx, `
+		INSERT INTO users (github_id, login, name, is_admin, last_login_at)
+		VALUES (-1, $1, 'Break-glass admin', true, now())
+		ON CONFLICT (github_id) DO UPDATE SET login = EXCLUDED.login, is_admin = true, last_login_at = now(), disabled_at = NULL
+		RETURNING `+userCols, login), &u)
+	return u, err
 }

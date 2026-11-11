@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/pressly/goose/v3 v3.30.0
 	go.yaml.in/yaml/v3 v3.0.6
+	golang.org/x/crypto v0.58.0
 	golang.org/x/oauth2 v0.38.0
 )
 

@@ -322,12 +322,25 @@ func (s *Store) RecentHealth(ctx context.Context, envID int64, n int) ([]HealthR
 	return out, rows.Err()
 }
 
-// Prune deletes container events and probes older than the retention window.
-func (s *Store) Prune(ctx context.Context, before time.Time) error {
-	if _, err := s.Pool.Exec(ctx, `DELETE FROM container_events WHERE at < $1`, before); err != nil {
+// Retention windows. Audit events are kept one year and are removed only by the audit_purge
+// function (see migration 00004), never by the server.
+const (
+	RetainEvents  = 14 * 24 * time.Hour
+	RetainHealth  = 24 * time.Hour
+	RetainRunLogs = 30 * 24 * time.Hour
+)
+
+// Prune applies the retention windows: container events 14 days, health checks 24 hours,
+// stored run logs 30 days (the run rows stay, only their captured logs go).
+func (s *Store) Prune(ctx context.Context, now time.Time) error {
+	if _, err := s.Pool.Exec(ctx, `DELETE FROM container_events WHERE at < $1`, now.Add(-RetainEvents)); err != nil {
 		return err
 	}
-	_, err := s.Pool.Exec(ctx, `DELETE FROM health_checks WHERE checked_at < $1`, before)
+	if _, err := s.Pool.Exec(ctx, `DELETE FROM health_checks WHERE checked_at < $1`, now.Add(-RetainHealth)); err != nil {
+		return err
+	}
+	_, err := s.Pool.Exec(ctx, `DELETE FROM action_run_logs WHERE run_id IN
+		(SELECT id FROM action_runs WHERE finished_at IS NOT NULL AND finished_at < $1)`, now.Add(-RetainRunLogs))
 	return err
 }
 
