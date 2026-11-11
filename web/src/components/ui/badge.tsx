@@ -1,14 +1,36 @@
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Tone = "default" | "prod" | "ok" | "bad" | "warn";
+export type BadgeTone = "default" | "prod" | "ok" | "bad" | "warn" | "cyan" | "indigo";
 
-export function Badge({ tone = "default", children }: { tone?: Tone; children: React.ReactNode }) {
-  const tones: Record<Tone, string> = {
-    default: "border-border text-muted",
-    prod: "border-red-500/50 text-red-600 dark:text-red-400",
-    ok: "border-green-500/50 text-green-700 dark:text-green-400",
-    bad: "border-red-500/50 text-red-600 dark:text-red-400",
-    warn: "border-amber-500/60 text-amber-700 dark:text-amber-400",
+export function Badge({
+  tone = "default",
+  className,
+  children,
+}: {
+  tone?: BadgeTone;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const tones: Record<BadgeTone, string> = {
+    default: "bg-zinc-800/80 text-zinc-300",
+    prod: "bg-rose-500/15 text-rose-300 font-semibold",
+    ok: "bg-emerald-500/15 text-emerald-300 font-medium",
+    bad: "bg-rose-500/15 text-rose-300 font-medium",
+    warn: "bg-amber-500/15 text-amber-300 font-medium",
+    cyan: "bg-cyan-500/15 text-cyan-300 font-medium",
+    indigo: "bg-indigo-500/15 text-indigo-300 font-medium",
   };
-  return <span className={cn("inline-block rounded border px-1.5 py-0.5 text-xs", tones[tone])}>{children}</span>;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-mono tracking-tight select-none",
+        tones[tone],
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
 }

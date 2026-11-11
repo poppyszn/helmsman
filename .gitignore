@@ -7,3 +7,4 @@ tmp/
 bin/
 coverage.out
 *.tsbuildinfo
+.DS_Store
