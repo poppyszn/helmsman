@@ -26,5 +26,11 @@ done
 [ "${#IDP_ENCRYPTION_KEY}" -ge 64 ] || { echo "preflight: IDP_ENCRYPTION_KEY must be 64 hex characters (openssl rand -hex 32)" >&2; exit 1; }
 case "$IDP_BASE_URL" in https://*) ;; *) echo "preflight: IDP_BASE_URL must start with https://" >&2; exit 1 ;; esac
 [ "${IDP_GITHUB_MODE:-real}" = real ] || { echo "preflight: IDP_GITHUB_MODE must be real on a deployed host" >&2; exit 1; }
+case ",$(val COMPOSE_PROFILES)," in
+  *,logs,*)
+    lmissing=""
+    for v in LOG_HOST_NAME FARO_ALLOWED_ORIGINS DOCKER_GID; do [ -n "$(val "$v")" ] || lmissing="$lmissing $v"; done
+    [ -z "$lmissing" ] || { echo "preflight: the logs profile is on, so .env also needs:$lmissing" >&2; exit 1; } ;;
+esac
 [ -f apps.yaml ] || { echo "preflight: apps.yaml is missing from the checkout" >&2; exit 1; }
 echo "preflight: ok"
