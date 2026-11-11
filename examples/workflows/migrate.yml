@@ -1,0 +1,23 @@
+name: migrate
+run-name: "${{ inputs.command }} ${{ inputs.environment }} [${{ inputs.correlation_id }}]"
+on:
+  workflow_dispatch:
+    inputs:
+      environment: { type: choice, options: [staging, production], required: true }
+      command: { type: choice, options: [migrate, seed], required: true }
+      correlation_id: { type: string, required: true }
+      requested_by: { type: string, required: true }
+concurrency:
+  group: migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block seeds on production
+        if: inputs.command == 'seed' && inputs.environment == 'production'
+        run: echo "Seeding production is blocked" && exit 1
+      - name: Run ${{ inputs.command }}
+        run: ./scripts/${{ inputs.command }}.sh   # project specific, reuses the repo's existing deploy access

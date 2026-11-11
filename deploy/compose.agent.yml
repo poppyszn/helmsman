@@ -1,0 +1,16 @@
+services:
+  idp-agent:
+    image: ghcr.io/<org>/helmsman-agent:${AGENT_VERSION}
+    restart: unless-stopped
+    environment:
+      IDP_JOIN_TOKEN: ${IDP_JOIN_TOKEN:-}
+    user: "65532:65532"
+    group_add: ["${DOCKER_GID}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./agent.yaml:/etc/idp-agent/agent.yaml:ro
+      - agent-data:/data
+    mem_limit: 64m
+    cpus: 0.25
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+volumes: { agent-data: {} }

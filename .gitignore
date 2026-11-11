@@ -1,0 +1,8 @@
+.env
+*.pem
+node_modules/
+web/dist/*
+!web/dist/.gitkeep
+tmp/
+bin/
+coverage.out

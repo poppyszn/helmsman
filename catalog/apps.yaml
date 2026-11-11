@@ -1,0 +1,15 @@
+version: 1
+apps:
+  - id: demo-app
+    name: Demo App
+    repo: acme-org/demo-app
+    environments:
+      - env: staging
+        tier: nonprod
+        agent: dev-agent
+        container: { compose_project: helmsman-dev, service: demo-app }
+        url: http://localhost:9001
+        health: { url: http://demo-app:8080/health, via: agent }
+        workflows: { deploy: deploy.yml, migrate: migrate.yml }
+        github_environment: staging
+        allow_seed: true

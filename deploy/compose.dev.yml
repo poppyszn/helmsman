@@ -1,0 +1,94 @@
+name: helmsman-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: helmsman
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helmsman-dev}
+      POSTGRES_DB: helmsman
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helmsman -d helmsman"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build: { context: .., dockerfile: deploy/docker/server.dev.Dockerfile }
+    working_dir: /src
+    volumes:
+      - ..:/src
+      - gomod:/go/pkg/mod
+      - gocache:/root/.cache/go-build
+    environment:
+      IDP_LISTEN: ":8080"
+      IDP_BASE_URL: http://localhost:5173
+      IDP_DATABASE_URL: postgres://helmsman:${POSTGRES_PASSWORD:-helmsman-dev}@postgres:5432/helmsman?sslmode=disable
+      IDP_GITHUB_MODE: fake
+      IDP_DISPLAY_TZ: ${IDP_DISPLAY_TZ:-Africa/Lagos}
+    ports: ["127.0.0.1:8080:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev"
+    environment:
+      VITE_PROXY_TARGET: http://server:8080
+    volumes:
+      - ../web:/app
+      - web_node_modules:/app/node_modules
+    ports: ["127.0.0.1:5173:5173"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ >/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+    depends_on:
+      server: { condition: service_started }
+    restart: unless-stopped
+
+  agent:
+    # M0 stub. M2 adds the real agent and auto-join with a dev token.
+    build: { context: .., dockerfile: deploy/docker/agent.Dockerfile }
+    user: "0:0"  # dev only: reads the host Docker socket without group_add
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 64m
+    cpus: 0.25
+    restart: unless-stopped
+
+  demo-app:
+    build: { context: .., dockerfile: deploy/docker/tool.Dockerfile, args: { TOOL: demo-app } }
+    environment: { APP_NAME: demo-app }
+    ports: ["127.0.0.1:9001:8080"]
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  demo-app-2:
+    build: { context: .., dockerfile: deploy/docker/tool.Dockerfile, args: { TOOL: demo-app } }
+    environment: { APP_NAME: demo-app-2 }
+    ports: ["127.0.0.1:9002:8080"]
+    restart: unless-stopped
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  fake-github:
+    build: { context: .., dockerfile: deploy/docker/tool.Dockerfile, args: { TOOL: fake-github } }
+    ports: ["127.0.0.1:8090:8090"]
+    restart: unless-stopped
+
+volumes:
+  pgdata: {}
+  gomod: {}
+  gocache: {}
+  web_node_modules: {}

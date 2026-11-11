@@ -1,0 +1,38 @@
+{
+  "name": "helmsman-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "@tanstack/react-query": "^5.107.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.72.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8"
+  }
+}
