@@ -130,16 +130,21 @@ func (s *Service) CheckAll(ctx context.Context) []RepoCheck {
 	return s.Checks()
 }
 
-// WatchRepos re-validates on startup and then every interval.
+// WatchRepos validates on startup and then every interval. While any repository is failing it
+// retries every minute, so a GitHub outage at startup or a freshly installed App is picked up
+// without waiting for the full interval.
 func (s *Service) WatchRepos(ctx context.Context, every time.Duration) {
-	t := time.NewTicker(every)
-	defer t.Stop()
 	for {
-		s.CheckAll(ctx)
+		wait := every
+		for _, c := range s.CheckAll(ctx) {
+			if c.Problem != "" {
+				wait = min(every, time.Minute)
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-time.After(wait):
 		}
 	}
 }

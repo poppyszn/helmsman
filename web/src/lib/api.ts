@@ -30,7 +30,7 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
 export type Me = {
   user: { id: number; login: string; name: string | null; avatar_url: string | null; is_admin: boolean };
   csrf_token: string;
-  can: { admin: boolean; audit: boolean; agents: boolean };
+  can: { admin: boolean; audit: boolean; agents: boolean; approve: boolean };
   display_tz: string;
 };
 
@@ -88,3 +88,83 @@ export type Agent = {
   online: boolean;
   outdated: boolean;
 };
+
+export type RunStatus =
+  | "pending_approval"
+  | "rejected"
+  | "dispatching"
+  | "queued"
+  | "in_progress"
+  | "waiting"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "unknown";
+
+export type RunStep = { name: string; status: string; conclusion: string | null; number: number };
+export type RunJob = { id: number; name: string; status: string; conclusion: string | null; html_url: string; steps: RunStep[] | null };
+
+export type Run = {
+  id: string;
+  app: string;
+  env: string;
+  tier: "nonprod" | "prod";
+  action: "migrate" | "seed";
+  status: RunStatus;
+  requested_by: string;
+  approved_by: string | null;
+  rejected_by: string | null;
+  gh_run_url: string | null;
+  workflow_url: string;
+  ref: string | null;
+  warning: string | null;
+  error: string | null;
+  jobs: RunJob[] | null;
+  rerun_of: string | null;
+  created_at: string;
+  finished_at: string | null;
+  can_approve: boolean;
+  can_reject: boolean;
+  can_cancel: boolean;
+  can_rerun: boolean;
+};
+
+export type RunsResponse = {
+  runs: Run[];
+  can_migrate: boolean;
+  can_seed: boolean;
+  seed_allowed: boolean;
+  needs_approval: boolean;
+  disabled_reason: string;
+  repo: string;
+};
+
+export type Deployment = {
+  run_id: number;
+  title: string;
+  commit: string;
+  actor: string;
+  at: string;
+  status: "succeeded" | "failed" | "in_progress" | "queued" | "cancelled" | "waiting";
+  url: string;
+  matches_running?: boolean;
+};
+
+export type DeploymentsResponse = {
+  configured: boolean;
+  deployments: Deployment[];
+  running_revision: string;
+  latest_success_commit: string;
+  mismatch: boolean;
+  error?: string;
+};
+
+export type RepoCheck = {
+  repo: string;
+  installed: boolean;
+  workflows: { file: string; role: string; exists: boolean; has_dispatch: boolean; error?: string }[] | null;
+  problem: string;
+  checked_at: string;
+};
+
+export const runActive = (s: RunStatus) => ["dispatching", "queued", "in_progress", "waiting"].includes(s);

@@ -44,3 +44,59 @@
 Migrations run automatically at server start (goose, embedded). Never edit an applied migration; add a new one. `audit_events` is append-only: UPDATE, DELETE and TRUNCATE are rejected by trigger.
 
 Backup, restore and production operations are written in M4.
+
+## Migrations, seeds and deployments (GitHub Actions)
+
+Helmsman starts the catalog's `workflows.migrate` workflow with `workflow_dispatch`. A seed runs the same workflow with `command: seed`. The inputs are fixed: `environment` (the catalog's `github_environment`), `command`, `correlation_id` and `requested_by`. Nothing else can be passed.
+
+### How a run goes
+
+1. A person with `action.migrate` or `action.seed` on the environment starts it from the **runs** tab. Production tiers create a request instead and wait for approval.
+2. The ref is the tag that points at the running image revision. If no tag matches, or the revision is unknown, the default branch is used and the run shows a warning.
+3. GitHub answers a dispatch with no run id, so Helmsman finds the run by the correlation id, which the workflow must put in its `run-name`. See `examples/workflows/migrate.yml`. It checks every 3 seconds for 60 seconds. After that the run becomes `unknown` and links to the workflow.
+4. The run and its jobs are polled every 5 seconds. The job logs are stored when the run ends, up to 5 MB per run, keeping the end of each log.
+5. `waiting` means GitHub is holding the job for an environment approval, which is done on GitHub.
+
+Rules enforced by the server:
+
+- one active run per environment (database unique index), and a second click within 10 seconds returns the first run
+- a seed is refused when the environment has `allow_seed: false`, for admins too
+- a production request needs a second person with `action.approve`. You cannot approve your own request. A requester can withdraw it. A rerun of a production run needs approval again
+- every request, approval, rejection, dispatch, cancel and completion is written to the audit log
+
+### GitHub App
+
+Dispatching uses a GitHub App, not a user token. Create the App with repository permissions **Actions: read and write**, **Contents: read** and **Metadata: read**, install it on each org or repository in the catalog, and set:
+
+```
+GITHUB_APP_ID=<app id>
+GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app.pem
+```
+
+The server signs a 9 minute JWT, asks GitHub for the installation of each repository, and caches the installation token, refreshing it at 50 of its 60 minutes. A 401 drops the token and retries once.
+
+The **GitHub** admin page checks every repository in the catalog at startup and every 10 minutes (every minute while one is failing): the App is installed, a token can be minted, and the migrate workflow exists and has a `workflow_dispatch` trigger. A repository that fails has its actions disabled, with the reason shown on the page and in the runs tab.
+
+### Rate limits and polling cost
+
+Requests use `ETag` and `If-None-Match`, and the deployment list is cached for 30 seconds. On a 403 or 429 with `Retry-After` all polling pauses until that time. Dispatches made during the pause fail with a retry hint.
+
+### Trying it locally
+
+`make up` starts `fake-github`, which also fakes the GitHub App and Actions APIs. It paces runs so a dispatch shows up after 4 seconds, waits 2 seconds in the queue and runs for 10 seconds. Change the pacing or break it on purpose:
+
+```bash
+curl -X PUT localhost:8090/_fake/scenario -d '{"dispatch":"never_appears"}'
+curl -X PUT localhost:8090/_fake/scenario -d '{"dispatch":"422"}'
+curl -X PUT localhost:8090/_fake/scenario -d '{"rate_limit_count":2,"rate_limit_retry_after":10}'
+curl -X PUT localhost:8090/_fake/scenario -d '{"waiting":true}'
+curl -X POST localhost:8090/_fake/expire-tokens
+```
+
+Sign in as `bob` and open `demo-app` / `prod` to request a production migration, then sign in as `erin` to approve it from **Approvals**.
+
+### When a run is stuck or unknown
+
+- `unknown`: the dispatch was accepted but no run carried the correlation id. Check that the workflow's `run-name` includes `${{ inputs.correlation_id }}`, then open the workflow link on the run.
+- `failed` with "rejected the dispatch": the workflow does not accept the four inputs, the ref does not exist, or it has no `workflow_dispatch` trigger.
+- Actions disabled for a repository: open the GitHub admin page and read the reason.

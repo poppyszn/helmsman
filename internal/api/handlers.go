@@ -31,9 +31,10 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"user":       c.User,
 		"csrf_token": auth.CSRFToken(s.Cfg.SessionKey, c.SessionHash),
 		"can": map[string]bool{
-			"admin":  c.Principal.AllowedGlobal(rbac.AdminAccess),
-			"audit":  c.Principal.AllowedGlobal(rbac.AuditView),
-			"agents": c.Principal.AllowedGlobal(rbac.AdminAgents),
+			"admin":   c.Principal.AllowedGlobal(rbac.AdminAccess),
+			"audit":   c.Principal.AllowedGlobal(rbac.AuditView),
+			"agents":  c.Principal.AllowedGlobal(rbac.AdminAgents),
+			"approve": c.Principal.AllowedAnyEnv(rbac.ActionApprove, rbac.Wildcard),
 		},
 		"display_tz": s.Cfg.DisplayTZ,
 	})

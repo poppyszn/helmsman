@@ -15,6 +15,10 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogViewer } from "@/components/LogViewer";
+import { RunsPanel } from "@/components/RunsPanel";
+import { DeploymentsPanel } from "@/components/DeploymentsPanel";
+
+type Tab = "logs" | "events" | "runs" | "deployments";
 
 const reasonText: Record<string, string> = {
   agent_offline: "The host agent on this server is offline.",
@@ -100,7 +104,7 @@ export default function AppDetail() {
               }`}
             >
               <span>{e.env}</span>
-              {e.tier === "prod" && <span className="text-xs text-zinc-500 font-semibold">prod</span>}
+              {e.tier === "prod" && e.env !== "prod" && <span className="text-xs text-zinc-500 font-semibold">prod</span>}
             </button>
           );
         })}
@@ -115,7 +119,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
   const { data: me } = useMe();
   const tz = me?.display_tz ?? "UTC";
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"logs" | "events">("logs");
+  const [activeTab, setActiveTab] = useState<Tab>("logs");
   const [copiedSha, setCopiedSha] = useState(false);
 
   const q = useQuery<EnvStatus>({
@@ -164,6 +168,13 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
     setTimeout(() => setCopiedSha(false), 2000);
   };
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "logs", label: "logs" },
+    { id: "events", label: `events (${s.events.length})` },
+    { id: "runs", label: "runs" },
+    { id: "deployments", label: "deployments" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Top Action & Reason Line */}
@@ -204,10 +215,10 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl bg-[#0a0a0d] p-4.5 space-y-1.5 transition-colors hover:bg-[#101014]">
           <div className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider">Health probe</div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2">
             {lastProbe ? (
               <>
-                <span className="text-2xl font-bold font-mono text-white tracking-tight">
+                <span className="text-2xl font-bold font-mono text-white tracking-tight whitespace-nowrap">
                   {lastProbe.latency_ms} ms
                 </span>
                 <span className="text-xs font-mono text-emerald-400 font-medium">
@@ -278,29 +289,24 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
       {/* Activity Lower Stage (Logs & Events) */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center gap-6 border-b border-zinc-900 pb-2.5 text-sm font-mono">
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`transition-colors cursor-pointer ${
-              activeTab === "logs"
-                ? "text-white font-semibold"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            logs
-          </button>
-          <button
-            onClick={() => setActiveTab("events")}
-            className={`transition-colors cursor-pointer ${
-              activeTab === "events"
-                ? "text-white font-semibold"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            events ({s.events.length})
-          </button>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`transition-colors cursor-pointer ${
+                activeTab === t.id ? "text-white font-semibold" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {activeTab === "logs" ? (
+        {activeTab === "runs" ? (
+          <RunsPanel app={app} env={env.env} tier={env.tier} tz={tz} />
+        ) : activeTab === "deployments" ? (
+          <DeploymentsPanel app={app} env={env.env} tz={tz} />
+        ) : activeTab === "logs" ? (
           <LogViewer
             app={app}
             env={env.env}

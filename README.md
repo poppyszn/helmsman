@@ -2,7 +2,7 @@
 
 A lightweight internal developer portal. One place to see every app in every environment, tail container logs, restart containers, run migrations and seeds through GitHub Actions, and follow deploys, all behind GitHub login with per-app, per-environment, per-action access control.
 
-Status: **M2**. GitHub login, app catalog, roles and bindings, the audit log, the agent, live status, log tailing and restarts work. GitHub runs (migrations, seeds, deployments) arrive in M3.
+Status: **M3**. GitHub login, app catalog, roles and bindings, the audit log, the agent, live status, log tailing and restarts work. Migrations and seeds run through GitHub Actions with approvals for production, and each environment has a Deployments tab. Backups, split database roles and the production deploy arrive in M4.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ make up
 - API: http://localhost:8080 (`/healthz`, `/readyz`)
 - Demo apps: http://localhost:9001/health and http://localhost:9002/health
 
-`make up` also seeds the dev data and starts a real agent. The agent joins within about a minute of the first start. Sign in through the fake GitHub picker (see the runbook for the dev accounts), open **Apps**, then **Demo App**, to see status, tail logs and restart the container.
+`make up` also seeds the dev data and starts a real agent. The agent joins within about a minute of the first start. Sign in through the fake GitHub picker (see the runbook for the dev accounts), open **Apps**, then **Demo App**, to see status, tail logs and restart the container. The **runs** tab starts migrations and seeds against the fake GitHub, which paces a run over about 16 seconds. The **deployments** tab lists the deploy workflow runs.
 
 Other targets: `make test`, `make down`, `make logs`, `make build`. Run `make help` for the list.
 
