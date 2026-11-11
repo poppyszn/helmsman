@@ -246,6 +246,7 @@ func (s *Server) handleLogHistory(w http.ResponseWriter, r *http.Request) {
 	close(results)
 
 	var merged []historyEntry
+	seenBrowser := map[string]bool{}
 	for res := range results {
 		if res.err != nil {
 			s.logHistoryError(app, env, res.err)
@@ -253,6 +254,15 @@ func (s *Server) handleLogHistory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, en := range res.entries {
+			// The Faro SDK sometimes delivers a batch twice, which Loki stores as two identical lines.
+			// A browser line carries the SDK's own timestamp, session and page, so an identical line is the
+			// same report. Container lines are never merged: a program may genuinely print the same line twice.
+			if res.source == "browser" {
+				if seenBrowser[en.Line] {
+					continue
+				}
+				seenBrowser[en.Line] = true
+			}
 			merged = append(merged, toHistoryEntry(res.source, en))
 		}
 	}

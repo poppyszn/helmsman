@@ -241,3 +241,31 @@ func TestHistoryHidesLokisOwnErrors(t *testing.T) {
 		t.Fatalf("%d %+v", code, out)
 	}
 }
+
+func TestHistoryCollapsesDuplicateBrowserDeliveriesButNotContainerLines(t *testing.T) {
+	e := newEnv(t)
+	enableFaro(t, e)
+	now := time.Now().UTC()
+	faro := `kind=event event_name=checkout session_id=s1 page_url=http://x/`
+	same := loki.Entry{TS: now, Line: "heartbeat", Labels: map[string]string{"kind": "app", "level": "info"}}
+	f := &fakeLoki{reply: map[string][]loki.Entry{
+		`source="browser"`:   {{TS: now, Line: faro, Labels: map[string]string{"kind": "event", "level": "info"}}, {TS: now.Add(time.Millisecond), Line: faro, Labels: map[string]string{"kind": "event", "level": "info"}}},
+		`source="container"`: {same, same},
+	}}
+	withLoki(t, e, f)
+	alice := e.client()
+	alice.login("alice")
+	var out histResp
+	alice.json("GET", "/api/apps/billing-api/envs/staging/logs/history", nil, &out)
+	var browser, container int
+	for _, en := range out.Entries {
+		if en.Source == "browser" {
+			browser++
+		} else {
+			container++
+		}
+	}
+	if browser != 1 || container != 2 {
+		t.Fatalf("browser duplicates collapse (got %d), container repeats stay (got %d)", browser, container)
+	}
+}

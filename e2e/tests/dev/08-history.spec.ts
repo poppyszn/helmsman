@@ -179,6 +179,44 @@ test("history is audited without the search text", async ({ page }) => {
   expect(JSON.stringify(entries)).not.toContain("card-4111-do-not-store");
 });
 
+test("the real Grafana Faro SDK, running in a browser, reports errors and events that show up here", async ({ page, request }) => {
+  const bundle = "https://unpkg.com/@grafana/faro-web-sdk@2.14.0/dist/bundle/faro-web-sdk.iife.js";
+  const reachable = await request.get(bundle).then((r) => r.ok(), () => false);
+  test.skip(!reachable, "the Faro SDK could not be downloaded from unpkg");
+  const sdkMarker = `sdk-${marker}`;
+
+  // The static demo page, served by its nginx container, gets the SDK exactly as the docs describe.
+  await page.goto(STATIC);
+  await page.addScriptTag({ url: bundle });
+  await page.evaluate(
+    ({ faro, m }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sdk = (window as any).GrafanaFaroWebSdk;
+      const f = sdk.initializeFaro({ url: `${faro}/collect`, app: { name: "static-demo", version: "3.1.4", environment: "staging" }, batching: { enabled: false } });
+      f.api.pushLog([`${m} real sdk log`], { level: sdk.LogLevel.WARN });
+      f.api.pushError(new Error(`${m} real sdk error`));
+      f.api.pushEvent(`${m}_real_event`, { id: "x1" });
+    },
+    { faro: FARO, m: sdkMarker },
+  );
+
+  await openHistory(page);
+  await history(page).getByPlaceholder("search...").fill(sdkMarker);
+  await eventually(page, async () => {
+    await expect(rows(page).filter({ hasText: "real sdk log" })).toHaveCount(1);
+    await expect(history(page).locator('[data-kind="exception"]').filter({ hasText: "real sdk error" })).toHaveCount(1);
+    // The SDK may also echo the event as a console message, so look for the event itself.
+    await expect(history(page).locator('[data-kind="event"]').filter({ hasText: "_real_event" })).toHaveCount(1);
+  });
+  const log = rows(page).filter({ hasText: "real sdk log" });
+  await expect(log).toHaveAttribute("data-kind", "app");
+  await expect(log).toHaveAttribute("data-source", "browser");
+  await expect(log.locator('span[title="warn"]')).toBeVisible();
+  const err = history(page).locator('[data-kind="exception"]').filter({ hasText: "real sdk error" });
+  await expect(err).toHaveAttribute("data-source", "browser");
+  await expect(err).toContainText("v3.1.4");
+});
+
 test("a viewer without log access cannot read history", async ({ browser, baseURL }) => {
   // carol is a viewer on demo-app staging only, so static-demo is invisible to her entirely.
   const ctx = await browser.newContext({ storageState: authFile("carol"), baseURL });

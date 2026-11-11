@@ -100,16 +100,33 @@ jobs:
           touch deploy/server/.env
           docker compose -f deploy/server/compose.yml config -q
         env:
-          COMPOSE_PROFILES: caddy,backup
+          COMPOSE_PROFILES: caddy,backup,logs
           IMAGE_TAG: ci
           POSTGRES_PASSWORD: ci
           APP_DB_PASSWORD: ci
           GITHUB_APP_KEY_FILE: /tmp/key.pem
           IDP_HOST: idp.ci.test
+          DOCKER_GID: "999"
+          LOG_HOST_NAME: ci
+          FARO_ALLOWED_ORIGINS: https://app.ci.test
+      - name: Alloy compose for app hosts resolves
+        run: docker compose -f deploy/compose.alloy.yml config -q
+        env:
+          LOKI_URL: https://idp.ci.test/loki/api/v1/push
+          LOKI_PASSWORD: ci
+          LOG_PROJECTS: ci
+          ALLOY_HOST_NAME: ci
+          DOCKER_GID: "999"
+      - name: Alloy and Loki configuration is valid
+        run: |
+          for f in write collector faro; do
+            docker run --rm -v "$PWD/deploy/alloy":/c grafana/alloy:v1.21.3 fmt "/c/$f.alloy" > /dev/null
+          done
+          docker run --rm -v "$PWD/deploy/loki":/c grafana/loki:3.7.9 -config.file=/c/loki.yaml -verify-config
       - name: Third party images in the server compose are pinned by digest
         run: |
-          if grep -nE '^\s+image:' deploy/server/compose.yml | grep -v '@sha256:' | grep -v 'helmsman-server'; then
-            echo "an image in deploy/server/compose.yml is not pinned by digest" >&2; exit 1
+          if grep -nE '^\s+image:' deploy/server/compose.yml deploy/compose.alloy.yml | grep -v '@sha256:' | grep -v 'helmsman-server'; then
+            echo "an image in the server or Alloy compose file is not pinned by digest" >&2; exit 1
           fi
       - name: Host preflight rejects an empty environment
         run: |
@@ -133,8 +150,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - name: Start the dev stack
-        run: make up
+      - name: Start the dev stack, with Loki and Alloy for the log history tests
+        run: make up-logs
       - name: Playwright end-to-end tests
         run: make e2e
       - name: Dev stack logs

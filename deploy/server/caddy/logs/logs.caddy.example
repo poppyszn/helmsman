@@ -1,0 +1,19 @@
+# Copy to logs.caddy (same folder) and run `docker compose --env-file .env up -d caddy` to enable.
+# These routes sit inside the site block of ../Caddyfile.
+
+# Browsers of your web apps send Grafana Faro telemetry here. Alloy limits the rate and the payload size
+# and only accepts the origins in FARO_ALLOWED_ORIGINS. Nothing here lets a browser read anything.
+handle_path /faro/* {
+	reverse_proxy alloy:12347
+}
+
+# Alloy on other hosts pushes container logs here. It needs a user and password, because Loki itself has
+# no login. Make the hash with:  docker run --rm caddy caddy hash-password --plaintext '<password>'
+# and put LOKI_PUSH_USER and LOKI_PUSH_PASSWORD_HASH in .env (single quote the hash: it contains $).
+@lokipush path /loki/api/v1/push
+handle @lokipush {
+	basic_auth {
+		{$LOKI_PUSH_USER} {$LOKI_PUSH_PASSWORD_HASH}
+	}
+	reverse_proxy loki:3100
+}
