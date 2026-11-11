@@ -123,12 +123,14 @@ services:
       LOG_PROJECTS: ${LOG_PROJECTS:-.+}
       # Must equal the agent id of this host in the catalog, so history for an environment never mixes with
       # the same compose project on another host.
-      HOST_NAME: ${LOG_HOST_NAME:?set LOG_HOST_NAME to this host's agent id}
-      FARO_ALLOWED_ORIGINS: ${FARO_ALLOWED_ORIGINS:?set FARO_ALLOWED_ORIGINS to the origins of your web apps}
+      HOST_NAME: ${LOG_HOST_NAME:-}
+      FARO_ALLOWED_ORIGINS: ${FARO_ALLOWED_ORIGINS:-}
     # Runs as the image's own alloy user (473) and joins the host's docker group to read the socket.
     # DOCKER_GID is the group id of /var/run/docker.sock (stat -c %g /var/run/docker.sock).
+    # These three values are only checked when the "logs" profile is on (preflight.sh does it), because
+    # Compose reads every service's variables even when its profile is off.
     user: "473:473"
-    group_add: ["${DOCKER_GID:?set DOCKER_GID to the group id of /var/run/docker.sock}"]
+    group_add: ["${DOCKER_GID:-999}"]
     read_only: true
     tmpfs: [/tmp]
     volumes:
