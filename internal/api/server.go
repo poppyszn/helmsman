@@ -63,7 +63,7 @@ func New(d Deps) (*Server, error) {
 	if d.LogOpensPerMinute <= 0 {
 		d.LogOpensPerMinute = 60
 	}
-	s := &Server{Deps: d, limiter: newRateLimiter(20, time.Minute),
+	s := &Server{Deps: d, limiter: newRateLimiter(authRate(d), time.Minute),
 		actionLimiter: newRateLimiter(d.ActionsPerMinute, time.Minute), logLimiter: newRateLimiter(d.LogOpensPerMinute, time.Minute)}
 	r := chi.NewRouter()
 	trusted, err := parseCIDRs(DefaultTrustedProxies)
@@ -150,4 +150,12 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"error": msg})
+}
+
+// authRate is the sign-in and join attempts allowed per minute per client address.
+func authRate(d Deps) int {
+	if d.Cfg.AuthRatePerMinute > 0 {
+		return d.Cfg.AuthRatePerMinute
+	}
+	return 20
 }
