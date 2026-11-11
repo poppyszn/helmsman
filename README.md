@@ -30,6 +30,7 @@ See the directory layout in `docs/catalog.md` and the code comments. Key parts: 
 
 - [Agent install](docs/agent-install.md)
 - [Catalog reference](docs/catalog.md)
+- [Home pilot](docs/home-pilot.md): run it on a home server with Docker, no domain and no AWS
 - [Runbook](docs/runbook.md): operations, production deploy, backups, load test
 - [Security checklist](docs/security.md): each control, where it lives and its test
 

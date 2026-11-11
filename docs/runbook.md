@@ -103,6 +103,8 @@ Sign in as `bob` and open `demo-app` / `prod` to request a production migration,
 
 ## Production deploy (IDP host)
 
+For a home or lab server with no domain, follow [the home pilot guide](home-pilot.md) instead. It uses the same compose file with a TLS and backup overlay.
+
 You need a Linux host with Docker Compose v2 and nginx, a DNS name for it, and a TLS certificate (certbot is fine).
 
 1. Install the server image by digest. The publish workflow pushes `ghcr.io/<owner>/helmsman-server`; copy the digest of the build you want into `IDP_IMAGE`.
