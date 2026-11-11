@@ -22,9 +22,19 @@ done
 [ -z "$missing" ] || { echo "preflight: .env is missing:$missing" >&2; exit 1; }
 
 [ -r "$GITHUB_APP_KEY_FILE" ] || { echo "preflight: GITHUB_APP_KEY_FILE ($GITHUB_APP_KEY_FILE) is not a readable file" >&2; exit 1; }
+# The server container runs as uid 65532. A key it cannot read shows up later as "private key could not be read".
+if [ "$(stat -c %u "$GITHUB_APP_KEY_FILE" 2>/dev/null || echo x)" != 65532 ] && [ "$(( 0$(stat -c %a "$GITHUB_APP_KEY_FILE" 2>/dev/null || echo 0) & 4 ))" -eq 0 ]; then
+  echo "preflight: warning: $GITHUB_APP_KEY_FILE is not readable by the server (uid 65532). Run: sudo chown 65532:65532 $GITHUB_APP_KEY_FILE && sudo chmod 400 $GITHUB_APP_KEY_FILE" >&2
+fi
 [ "${#IDP_SESSION_KEY}" -ge 64 ] || { echo "preflight: IDP_SESSION_KEY must be 64 hex characters (openssl rand -hex 32)" >&2; exit 1; }
 [ "${#IDP_ENCRYPTION_KEY}" -ge 64 ] || { echo "preflight: IDP_ENCRYPTION_KEY must be 64 hex characters (openssl rand -hex 32)" >&2; exit 1; }
 case "$IDP_BASE_URL" in https://*) ;; *) echo "preflight: IDP_BASE_URL must start with https://" >&2; exit 1 ;; esac
 [ "${IDP_GITHUB_MODE:-real}" = real ] || { echo "preflight: IDP_GITHUB_MODE must be real on a deployed host" >&2; exit 1; }
+case ",$(val COMPOSE_PROFILES)," in
+  *,logs,*)
+    lmissing=""
+    for v in LOG_HOST_NAME FARO_ALLOWED_ORIGINS DOCKER_GID; do [ -n "$(val "$v")" ] || lmissing="$lmissing $v"; done
+    [ -z "$lmissing" ] || { echo "preflight: the logs profile is on, so .env also needs:$lmissing" >&2; exit 1; } ;;
+esac
 [ -f apps.yaml ] || { echo "preflight: apps.yaml is missing from the checkout" >&2; exit 1; }
 echo "preflight: ok"

@@ -1,0 +1,50 @@
+# For an app repository that already uses the standard deploy pipeline (_run-service.yml). It lets
+# Helmsman start migrations and seeds without changing the repository's own migrate.yml and seed.yml.
+# Put it in .github/workflows/ on the default branch, and set `workflows.migrate: helmsman-run.yml`
+# and `github_environment: <the environment name below>` in the catalog.
+#
+# Helmsman sends exactly these four inputs. GitHub rejects a dispatch that carries an input the
+# workflow does not declare, and Helmsman finds its run by the correlation id in run-name.
+name: Helmsman run
+run-name: "${{ inputs.command }} ${{ inputs.environment }} [${{ inputs.correlation_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to run on
+        type: choice
+        options: [develop, production]   # your GitHub environment names
+        required: true
+      command:
+        description: What to run
+        type: choice
+        options: [migrate, seed]
+        required: true
+      correlation_id:
+        description: Set by Helmsman to find this run
+        type: string
+        required: true
+      requested_by:
+        description: GitHub login of the person who asked in Helmsman
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: helmsman-run-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: ${{ inputs.command }}
+    # Seeding production is never allowed, whatever Helmsman sends.
+    if: ${{ !(inputs.command == 'seed' && inputs.environment == 'production') }}
+    uses: ./.github/workflows/_run-service.yml
+    with:
+      environment: ${{ inputs.environment }}
+      service: ${{ inputs.command }}
+    secrets: inherit
