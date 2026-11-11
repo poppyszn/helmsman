@@ -95,15 +95,12 @@ export default function AppDetail() {
               onClick={() => setSelected(e.env)}
               className={`flex items-center gap-2 transition-colors cursor-pointer select-none ${
                 isActive
-                  ? "text-white font-semibold"
+                  ? "text-white font-semibold underline decoration-2 underline-offset-8"
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              {isActive && (
-                <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-              )}
               <span>{e.env}</span>
-              {e.tier === "prod" && <span className="text-[11px] text-zinc-500 font-semibold">prod</span>}
+              {e.tier === "prod" && <span className="text-xs text-zinc-500 font-semibold">prod</span>}
             </button>
           );
         })}
@@ -225,13 +222,13 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
 
         <div className="rounded-xl bg-[#0a0a0d] p-4.5 space-y-1.5 transition-colors hover:bg-[#101014]">
           <div className="text-xs font-mono font-medium text-zinc-400 uppercase tracking-wider">Container</div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2">
             {c ? (
               <>
                 <span className="text-2xl font-bold text-white tracking-tight capitalize">
                   {c.state}
                 </span>
-                <span className="text-xs font-mono text-zinc-400">
+                <span className="text-xs font-mono text-zinc-400 whitespace-nowrap">
                   ({c.restart_count} restart{c.restart_count === 1 ? "" : "s"})
                 </span>
               </>
@@ -258,7 +255,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
                 </button>
               </>
             ) : (
-              <span className="text-xl font-medium text-zinc-500 font-mono">—</span>
+              <span className="text-xl font-medium text-zinc-500 font-mono">-</span>
             )}
           </div>
         </div>
@@ -345,7 +342,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
                         </Badge>
                       </Td>
                       <Td className="font-mono text-xs text-zinc-200">
-                        {e.detail || "—"}
+                        {e.detail || "-"}
                       </Td>
                     </Tr>
                   ))}
