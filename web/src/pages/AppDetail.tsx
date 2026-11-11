@@ -52,7 +52,7 @@ export default function AppDetail() {
         <p className="text-xs text-zinc-400 mt-1">
           App not found or access restricted.
         </p>
-        <Link to="/" className="inline-block text-xs text-zinc-300 hover:text-white mt-3 underline">
+        <Link to="/" className="inline-block text-xs text-sky-400 hover:text-sky-300 mt-3 underline">
           Back to apps
         </Link>
       </Card>
@@ -75,10 +75,10 @@ export default function AppDetail() {
               href={env.url}
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 font-mono"
+              className="text-sm text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1.5 font-mono"
             >
               <span>{env.url.replace(/^https?:\/\//, "")}</span>
-              <ExternalLink className="size-3.5 text-zinc-500" strokeWidth={1.5} />
+              <ExternalLink className="size-3.5" strokeWidth={1.5} />
             </a>
           )}
         </div>

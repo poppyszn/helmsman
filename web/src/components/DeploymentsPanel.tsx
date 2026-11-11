@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, TriangleAlert } from "lucide-react";
 import { api, formatTime, type DeploymentsResponse } from "@/lib/api";
 import { RunStatusBadge } from "@/components/RunStatus";
+import { DeploymentDetail } from "@/components/DeploymentDetail";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 
 export function DeploymentsPanel({ app, env, tz }: { app: string; env: string; tz: string }) {
+  const [openRun, setOpenRun] = useState<number | null>(null);
   const q = useQuery<DeploymentsResponse>({
     queryKey: ["deployments", app, env],
     queryFn: () => api(`/api/apps/${app}/envs/${env}/deployments`),
@@ -38,6 +41,9 @@ export function DeploymentsPanel({ app, env, tz }: { app: string; env: string; t
         <Table>
           <thead>
             <Tr>
+              <Th>
+                <span className="sr-only">Steps</span>
+              </Th>
               <Th>Status</Th>
               <Th>Commit</Th>
               <Th>Actor</Th>
@@ -48,24 +54,46 @@ export function DeploymentsPanel({ app, env, tz }: { app: string; env: string; t
             </Tr>
           </thead>
           <tbody>
-            {d.deployments.map((x) => (
-              <Tr key={x.run_id}>
-                <Td>
-                  <RunStatusBadge status={x.status} />
-                </Td>
-                <Td className="font-mono text-xs text-zinc-300">
-                  {x.commit.slice(0, 7)}
-                  {x.matches_running && <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-300">running</span>}
-                </Td>
-                <Td className="font-mono text-xs text-zinc-300">{x.actor}</Td>
-                <Td className="font-mono text-xs text-zinc-400">{formatTime(x.at, tz)}</Td>
-                <Td>
-                  <a href={x.url} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-white" title="Open on GitHub">
-                    <ExternalLink className="size-3.5" strokeWidth={1.5} />
-                  </a>
-                </Td>
-              </Tr>
-            ))}
+            {d.deployments.flatMap((x) => {
+              const open = openRun === x.run_id;
+              return [
+                <Tr key={x.run_id}>
+                  <Td className="w-8 pr-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenRun(open ? null : x.run_id)}
+                      aria-expanded={open}
+                      aria-label={open ? "Hide steps" : "Show steps"}
+                      title={open ? "Hide steps" : "Show steps and logs"}
+                      className="rounded p-1 text-sky-400 hover:bg-sky-400/10 hover:text-sky-300"
+                    >
+                      {open ? <ChevronDown className="size-4" strokeWidth={1.5} /> : <ChevronRight className="size-4" strokeWidth={1.5} />}
+                    </button>
+                  </Td>
+                  <Td>
+                    <RunStatusBadge status={x.status} />
+                  </Td>
+                  <Td className="font-mono text-xs text-zinc-300">
+                    {x.commit.slice(0, 7)}
+                    {x.matches_running && <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-300">running</span>}
+                  </Td>
+                  <Td className="font-mono text-xs text-zinc-300">{x.actor}</Td>
+                  <Td className="font-mono text-xs text-zinc-400">{formatTime(x.at, tz)}</Td>
+                  <Td>
+                    <a href={x.url} target="_blank" rel="noreferrer" className="text-sky-400 hover:text-sky-300" title="Open on GitHub">
+                      <ExternalLink className="size-3.5" strokeWidth={1.5} />
+                    </a>
+                  </Td>
+                </Tr>,
+                open && (
+                  <tr key={`${x.run_id}-detail`}>
+                    <td colSpan={6} className="border-t border-zinc-900/60 bg-[#0a0a0d] p-0">
+                      <DeploymentDetail app={app} env={env} runId={x.run_id} />
+                    </td>
+                  </tr>
+                ),
+              ];
+            })}
           </tbody>
         </Table>
       )}

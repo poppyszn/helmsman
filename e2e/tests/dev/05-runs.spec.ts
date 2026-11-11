@@ -159,6 +159,18 @@ test("the deployments tab lists the deploy workflow runs", async ({ page }) => {
   await expect(page.getByRole("row").filter({ hasText: "succeeded" }).first()).toBeVisible();
 });
 
+test("a deployment shows its steps and the log of each job", async ({ page }) => {
+  await page.goto("/apps/demo-app");
+  await page.getByRole("button", { name: "deployments", exact: true }).click();
+  await page.getByRole("button", { name: "Show steps" }).first().click();
+  await expect(page.getByText("Set up job").first()).toBeVisible();
+  await expect(page.getByText("Complete job").first()).toBeVisible();
+  await page.getByRole("button", { name: "Show log" }).first().click();
+  await expect(page.getByText("applying changes").first()).toBeVisible();
+  await page.getByRole("button", { name: "Hide log" }).first().click();
+  await expect(page.getByText("applying changes")).toHaveCount(0);
+});
+
 test.describe("who may run what", () => {
   test("carol, a viewer, has the buttons disabled", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: authFile("carol"), baseURL: test.info().project.use.baseURL });

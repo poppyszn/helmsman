@@ -35,10 +35,12 @@ type Run struct {
 
 // Step is one step of a job.
 type Step struct {
-	Name       string `json:"name"`
-	Status     string `json:"status"`
-	Conclusion string `json:"conclusion"`
-	Number     int    `json:"number"`
+	Name        string     `json:"name"`
+	Status      string     `json:"status"`
+	Conclusion  string     `json:"conclusion"`
+	Number      int        `json:"number"`
+	StartedAt   *time.Time `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at"`
 }
 
 // Job is one job of a run.

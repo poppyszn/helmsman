@@ -77,5 +77,72 @@ func sameCommit(a, b string) bool {
 	return a != "" && b != "" && (strings.HasPrefix(a, b) || strings.HasPrefix(b, a))
 }
 
-var _ = http.StatusOK
+// deployLogCap is how much of one job's log a viewer receives (the tail, where failures are).
+const deployLogCap = 1 << 20
+
+// deployRun checks that runID is a recent run of this environment's own deploy workflow and returns
+// the target. It stops a caller from reading any other run or job in the repository.
+func (s *Service) deployRun(ctx context.Context, app, env string, runID int64) (Target, error) {
+	t, err := s.Resolve(ctx, app, env)
+	if err != nil {
+		return t, err
+	}
+	if t.Spec.Workflows.Deploy == "" {
+		return t, &Error{Status: http.StatusNotFound, Msg: "this app has no deploy workflow in the catalog"}
+	}
+	if reason, bad := s.RepoProblem(t.App.Repo); bad {
+		return t, &Error{Status: http.StatusConflict, Msg: reason}
+	}
+	runs, err := s.GH.ListRuns(ctx, t.App.Repo, t.Spec.Workflows.Deploy, 20, 30*time.Second)
+	if err != nil {
+		return t, &Error{Status: http.StatusBadGateway, Msg: s.describe(t.App.Repo, err)}
+	}
+	for _, r := range runs {
+		if r.ID == runID {
+			return t, nil
+		}
+	}
+	return t, &Error{Status: http.StatusNotFound, Msg: "not found"}
+}
+
+// DeploymentJobs lists the jobs of one deploy run with their steps.
+func (s *Service) DeploymentJobs(ctx context.Context, app, env string, runID int64) ([]gh.Job, error) {
+	t, err := s.deployRun(ctx, app, env, runID)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := s.GH.ListJobs(ctx, t.App.Repo, runID)
+	if err != nil {
+		return nil, &Error{Status: http.StatusBadGateway, Msg: s.describe(t.App.Repo, err)}
+	}
+	return jobs, nil
+}
+
+// DeploymentJobLog returns the tail of one job's log, read live from GitHub and never stored. Opening it
+// is audited (who looked at which deploy), the text is not.
+func (s *Service) DeploymentJobLog(ctx context.Context, a Actor, app, env string, runID, jobID int64) (string, bool, error) {
+	t, err := s.deployRun(ctx, app, env, runID)
+	if err != nil {
+		return "", false, err
+	}
+	jobs, err := s.GH.ListJobs(ctx, t.App.Repo, runID)
+	if err != nil {
+		return "", false, &Error{Status: http.StatusBadGateway, Msg: s.describe(t.App.Repo, err)}
+	}
+	found := false
+	for _, j := range jobs {
+		found = found || j.ID == jobID
+	}
+	if !found {
+		return "", false, &Error{Status: http.StatusNotFound, Msg: "not found"}
+	}
+	if err := s.audit(ctx, a, "deploy.logs.view", t, "ok", map[string]any{"gh_run_id": runID, "job_id": jobID}); err != nil {
+		return "", false, &Error{Status: http.StatusInternalServerError, Msg: "could not write the audit log"}
+	}
+	text, cut, err := s.GH.JobLogs(ctx, t.App.Repo, jobID, deployLogCap)
+	if err != nil {
+		return "", false, &Error{Status: http.StatusBadGateway, Msg: s.describe(t.App.Repo, err)}
+	}
+	return strings.TrimPrefix(text, "\ufeff"), cut, nil
+}
 var _ gh.API
