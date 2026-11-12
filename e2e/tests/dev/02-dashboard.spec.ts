@@ -16,6 +16,21 @@ test.describe("alice (admin)", () => {
     await expect(links.getByRole("link", { name: "Dashboards" })).toHaveCount(0);
   });
 
+  test("the breadcrumbs at the top are links back up the path", async ({ page }) => {
+    await page.goto("/apps/demo-app");
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(crumbs.getByText("demo-app")).toHaveAttribute("aria-current", "page");
+    await crumbs.getByRole("link", { name: "apps" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto("/apps/demo-app");
+    await crumbs.getByRole("link", { name: "helmsman" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    // A step without a page of its own is not a link.
+    await page.goto("/admin/integrations");
+    await expect(crumbs.getByRole("link", { name: "admin" })).toHaveCount(0);
+    await expect(crumbs.getByText("integrations")).toHaveAttribute("aria-current", "page");
+  });
+
   test("the dashboard lists the app with both environments and their status", async ({ page }) => {
     await page.goto("/");
     const card = page.getByRole("link", { name: /Demo App/ });
