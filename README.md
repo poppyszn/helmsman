@@ -6,7 +6,7 @@ Helmsman does not build or deploy your apps and does not replace your pipelines.
 
 ## What it does
 
-- **Apps and environments.** A catalog of apps (`apps.yaml`, reviewed in git) with live status per environment: healthy, degraded, down, or unknown. Filter by tag, organization or tier; keep links to your other tools next to the apps.
+- **Apps and environments.** A catalog of apps (`apps.yaml`, reviewed in git) with live status per environment: healthy, degraded, down, or unknown. Filter by tag, organization or tier; keep links to your other tools next to the apps. Every view has its own address (`/apps/<app>/<environment>/<tab>`), so a link lands on the same place.
 - **Logs.** Live tail of any container, with JSON, key=value, nginx and plain lines laid out for reading and a level filter. Optional history for 14 days from Loki, including browser logs from Grafana Faro.
 - **Restarts.** One click, with an audit trail, a type-the-name guard for production, and a lock against double clicks.
 - **Migrations and seeds.** Started through `workflow_dispatch` on your repository's own workflow, tracked to completion with job logs. Optional second-person approval per environment.
