@@ -12,6 +12,7 @@ import {
   PlugZap,
   ShieldCheck,
   FileText,
+  Stethoscope,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -125,6 +126,12 @@ export default function Layout() {
             <NavLink to="/admin/integrations" className={navItemClass} title="Integrations">
               <PlugZap className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
               {!collapsed && <span>Integrations</span>}
+            </NavLink>
+          )}
+          {me.can.admin && (
+            <NavLink to="/admin/doctor" className={navItemClass} title="Setup check">
+              <Stethoscope className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+              {!collapsed && <span>Setup check</span>}
             </NavLink>
           )}
           {me.can.agents && (

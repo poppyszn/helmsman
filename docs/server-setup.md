@@ -332,6 +332,9 @@ On **Access**, bind people and teams to roles. Team subjects are `org/team-slug`
 
 ## If something fails
 
+Open **Setup check** in the sidebar first (admins). It runs the checks for the problems new installs hit most, each with its fix: the public address and proxy headers, a live WebSocket test from your browser, GitHub sign-in (including a GitHub App's client ID used by mistake), the App's key and installation on each repository, the catalog, every agent and every environment's container, the database role and the audit log protection. It changes nothing.
+
+
 | Symptom | Cause and fix |
 |---|---|
 | `error while interpolating ... FARO_ALLOWED_ORIGINS / LOG_HOST_NAME / DOCKER_GID` | An older compose file. Update to the current one; these are only needed with the `logs` profile. |
