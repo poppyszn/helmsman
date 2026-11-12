@@ -29,6 +29,8 @@ export default function App() {
       <Route element={<Protected />}>
         <Route path="/" element={<Apps />} />
         <Route path="/apps/:appId" element={<AppDetail />} />
+        <Route path="/apps/:appId/:env" element={<AppDetail />} />
+        <Route path="/apps/:appId/:env/:tab" element={<AppDetail />} />
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/bindings" element={<Bindings />} />
         <Route path="/admin/catalog" element={<Catalog />} />
