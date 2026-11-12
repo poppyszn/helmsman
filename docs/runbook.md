@@ -61,7 +61,7 @@ Rules enforced by the server:
 
 - one active run per environment (database unique index), and a second click within 10 seconds returns the first run
 - a seed is refused when the environment has `allow_seed: false`, for admins too
-- a production request needs a second person with `action.approve`. You cannot approve your own request. A requester can withdraw it. A rerun of a production run needs approval again
+- an environment with `require_approval: true` in the catalog makes a request wait for a second person with `action.approve` (off by default). You cannot approve your own request. A requester can withdraw it. A rerun of a production run needs approval again
 - every request, approval, rejection, dispatch, cancel and completion is written to the audit log
 
 ### GitHub App

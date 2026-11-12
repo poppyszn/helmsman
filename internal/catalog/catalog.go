@@ -42,7 +42,10 @@ type Env struct {
 	Workflows         Workflows `yaml:"workflows" json:"workflows"`
 	GitHubEnvironment string    `yaml:"github_environment" json:"github_environment"`
 	AllowSeed         *bool     `yaml:"allow_seed" json:"allow_seed"`
-	Logs              Logs      `yaml:"logs" json:"logs"`
+	// RequireApproval makes a migration or seed wait for a second person with action.approve before it is
+	// started. Off unless set to true. A run still needs the permission on that exact environment.
+	RequireApproval *bool `yaml:"require_approval" json:"require_approval"`
+	Logs            Logs  `yaml:"logs" json:"logs"`
 	// Links are shortcuts for this environment only. The app's own links come first.
 	Links []Link `yaml:"links" json:"links"`
 }
@@ -80,6 +83,9 @@ func (e Env) SeedAllowed() bool {
 	}
 	return e.Tier != "prod"
 }
+
+// NeedsApproval reports whether runs wait for a second person. They do not unless the environment says so.
+func (e Env) NeedsApproval() bool { return e.RequireApproval != nil && *e.RequireApproval }
 
 // Parse decodes YAML strictly: unknown fields are errors, so typos are caught.
 func Parse(data []byte) (*Catalog, error) {
