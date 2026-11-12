@@ -29,7 +29,16 @@ function breadcrumbs(pathname: string): Crumb[] {
   const parts = pathname.split("/").filter(Boolean);
   const home: Crumb = { label: "helmsman", to: "/" };
   if (parts.length === 0) return [home, { label: "apps" }];
-  if (parts[0] === "apps" && parts.length >= 2) return [home, { label: "apps", to: "/" }, { label: parts[1] }];
+  if (parts[0] === "apps" && parts.length >= 2) {
+    const app = `/apps/${parts[1]}`;
+    const rest = parts.slice(2);
+    return [
+      home,
+      { label: "apps", to: "/" },
+      rest.length === 0 ? { label: parts[1] } : { label: parts[1], to: app },
+      ...rest.map((p, i) => (i < rest.length - 1 ? { label: p, to: `${app}/${rest.slice(0, i + 1).join("/")}` } : { label: p })),
+    ];
+  }
   if (parts[0] === "admin" && parts.length >= 2) return [home, { label: "admin" }, { label: parts.slice(1).join(" / ") }];
   return [home, ...parts.map((p, i) => ({ label: p, ...(i < parts.length - 1 ? { to: "/" + parts.slice(0, i + 1).join("/") } : {}) }))];
 }

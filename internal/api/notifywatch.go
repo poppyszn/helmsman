@@ -128,7 +128,7 @@ func (w *watcher) env(ctx context.Context, a store.AppRow, e store.EnvRow) {
 		return
 	}
 	where := a.ID + " / " + e.Env
-	base := notify.Event{App: a.ID, Env: e.Env, Tier: e.Tier, Path: "/apps/" + a.ID, Details: map[string]string{"environment": where}}
+	base := notify.Event{App: a.ID, Env: e.Env, Tier: e.Tier, Path: "/apps/" + a.ID + "/" + e.Env, Details: map[string]string{"environment": where}}
 	// Unknown (agent offline, no fresh probe) says nothing about the app, so it is not a change.
 	if v.Status != health.Unknown {
 		obs := "healthy"
@@ -297,7 +297,7 @@ func (w *watcher) deployEvent(ctx context.Context, repo, workflow string, envs [
 	switch {
 	case match >= 0:
 		ev.App, ev.Env, ev.Tier = envs[match].app, envs[match].env, envs[match].tier
-		ev.Path = "/apps/" + ev.App
+		ev.Path = "/apps/" + ev.App + "/" + ev.Env + "/deployments"
 	case len(envs) > 0:
 		tier := envs[0].tier
 		same := true

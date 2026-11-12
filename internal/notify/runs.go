@@ -18,7 +18,7 @@ func RunEvent(kind string, r store.ActionRun) (Event, bool) {
 		what = strings.ToUpper(r.Action[:1]) + r.Action[1:]
 	}
 	where := r.App + " / " + r.Env
-	ev := Event{Type: typ, App: r.App, Env: r.Env, Tier: r.Tier, Path: "/apps/" + r.App, Key: typ + ":run:" + r.ID,
+	ev := Event{Type: typ, App: r.App, Env: r.Env, Tier: r.Tier, Path: "/apps/" + r.App + "/" + r.Env + "/runs", Key: typ + ":run:" + r.ID,
 		Details: map[string]string{"command": r.Action, "requested by": r.RequestedByLogin, "environment": where}}
 	switch kind {
 	case "pending_approval":
