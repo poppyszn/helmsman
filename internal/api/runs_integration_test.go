@@ -559,3 +559,39 @@ func TestActionsAndLogOpensAreRateLimitedPerUser(t *testing.T) {
 		}
 	}
 }
+
+func TestDevelopersNeverSeedProduction(t *testing.T) {
+	r := newRunsEnv(t)
+	ctx := context.Background()
+	// Even when the environment allows seeds and the developer has the role on prod, only migrations are possible.
+	allow := strings.Replace(catalogYAML, "        github_environment: production\n", "        github_environment: production\n        allow_seed: true\n", 1)
+	r.writeCatalog(allow)
+	if err := r.cat.Reload(ctx, "test", true); err != nil {
+		t.Fatal(err)
+	}
+	r.bind("user", itoa(r.userID("bob")), "developer", "billing-api", "prod")
+	var list struct {
+		CanMigrate bool `json:"can_migrate"`
+		CanSeed    bool `json:"can_seed"`
+	}
+	if c := r.bob.json("GET", "/api/apps/billing-api/envs/prod/runs", nil, &list); c != 200 || !list.CanMigrate || list.CanSeed {
+		t.Fatalf("a developer may migrate but not seed production: %d %+v", c, list)
+	}
+	if code, out := r.start(r.bob, "billing-api", "prod", "seed"); code != 403 {
+		t.Fatalf("seeding production must be refused for a developer: %d %+v", code, out)
+	}
+	if code, _ := r.start(r.bob, "billing-api", "prod", "migrate"); code != 202 && code != 200 && code != 201 {
+		t.Fatalf("migrating production still works: %d", code)
+	}
+	// Staging is unchanged: developers still seed there.
+	if code, _ := r.start(r.bob, "billing-api", "staging", "seed"); code != 202 && code != 200 && code != 201 {
+		t.Fatalf("seeding staging is unchanged: %d", code)
+	}
+	// A site admin can, because the environment allows it.
+	var adm struct {
+		CanSeed bool `json:"can_seed"`
+	}
+	if c := r.alice.json("GET", "/api/apps/billing-api/envs/prod/runs", nil, &adm); c != 200 || !adm.CanSeed {
+		t.Fatalf("a site admin keeps the ability when allow_seed is true: %d %+v", c, adm)
+	}
+}

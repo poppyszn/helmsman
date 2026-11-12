@@ -30,6 +30,11 @@ func TestMatrix(t *testing.T) {
 		{"perm not in role", dev("billing", "*"), ActionMigrate, stg, false},
 		{"no bindings", Principal{}, AppView, stg, false},
 		{"site admin everywhere incl prod", Principal{IsAdmin: true}, ActionRestart, prod, true},
+		{"a developer can migrate prod", Principal{Bindings: []Binding{{Permissions: []string{ActionMigrate, ActionSeed}, AppID: "billing", Env: "prod"}}}, ActionMigrate, prod, true},
+		{"a developer can never seed prod, even with the permission bound", Principal{Bindings: []Binding{{Permissions: []string{ActionMigrate, ActionSeed}, AppID: "billing", Env: "prod"}}}, ActionSeed, prod, false},
+		{"not by wildcard either", Principal{Bindings: []Binding{{Permissions: []string{ActionSeed}, AppID: "*", Env: "*"}}}, ActionSeed, prod, false},
+		{"seeding nonprod is unchanged", Principal{Bindings: []Binding{{Permissions: []string{ActionSeed}, AppID: "billing", Env: "*"}}}, ActionSeed, stg, true},
+		{"a site admin can seed prod (allow_seed still decides)", Principal{IsAdmin: true}, ActionSeed, prod, true},
 		{"union of bindings", Principal{Bindings: []Binding{
 			{Permissions: []string{AppView}, AppID: "billing", Env: "staging"},
 			{Permissions: []string{LogsView}, AppID: "billing", Env: "staging"}}}, LogsView, stg, true},

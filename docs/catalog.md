@@ -56,6 +56,8 @@ apps:
 
 `allow_seed: false` refuses seeds for that environment even for admins.
 
+Seeding a production environment is also never available through a role: `action.seed` on a `tier: prod` environment is held only by site admins, so a `developer` bound to production can run migrations but not seeds, whatever `allow_seed` says. A site admin can seed production only where `allow_seed: true`.
+
 ## Agents must exist first
 
 Catalog validation rejects an environment whose `agent` is not registered. Create the agent first under **Agents** in the UI (see [agent-install.md](agent-install.md)); `make seed-dev` registers `dev-agent` for the local stack. Revoking an agent does not change environments that already use it, but a catalog reload that still references it is rejected.
