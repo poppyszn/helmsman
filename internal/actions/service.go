@@ -62,6 +62,10 @@ type Service struct {
 	Tick           time.Duration
 	LogCap         int // bytes of job logs kept per run
 
+	// Hook is told about the moments people care about: a production run waiting for approval, and a run
+	// that failed or succeeded. kind is "pending_approval", "failed" or "succeeded". Optional.
+	Hook func(ctx context.Context, kind string, run store.ActionRun)
+
 	mu           sync.Mutex
 	blockedUntil time.Time
 	checks       map[string]RepoCheck
@@ -188,8 +192,21 @@ func (s *Service) Request(ctx context.Context, a Actor, app, env, command, rerun
 	if status == "dispatching" {
 		s.dispatch(ctx, id)
 	}
+	if status == "pending_approval" {
+		s.emit(ctx, "pending_approval", id)
+	}
 	run, err := s.Store.GetRun(ctx, id)
 	return Result{Run: run}, err
+}
+
+// emit tells the hook about a run, reading it fresh so the hook sees the stored state.
+func (s *Service) emit(ctx context.Context, kind, id string) {
+	if s.Hook == nil {
+		return
+	}
+	if run, err := s.Store.GetRun(context.WithoutCancel(ctx), id); err == nil {
+		s.Hook(context.WithoutCancel(ctx), kind, run)
+	}
 }
 
 func envInput(t Target) string {
@@ -224,6 +241,7 @@ func (s *Service) dispatch(ctx context.Context, id string) {
 		msg := s.describe(run.Repo, err)
 		_ = s.Store.Fail(ctx, id, msg)
 		s.auditSystem(ctx, "action.run.dispatched", run, "error", map[string]any{"error": msg, "ref": ref})
+		s.emit(ctx, "failed", id)
 		return
 	}
 	_ = s.Store.MarkDispatched(ctx, id, ref, warning, s.now(), s.now().Add(s.CorrelateEvery))

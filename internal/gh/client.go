@@ -24,6 +24,7 @@ type Run struct {
 	Status     string    `json:"status"`     // queued | in_progress | waiting | completed ...
 	Conclusion string    `json:"conclusion"` // success | failure | cancelled ...
 	HeadSHA    string    `json:"head_sha"`
+	HeadBranch string    `json:"head_branch"`
 	HTMLURL    string    `json:"html_url"`
 	Event      string    `json:"event"`
 	CreatedAt  time.Time `json:"created_at"`

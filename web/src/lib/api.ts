@@ -232,3 +232,40 @@ export type AgentContainer = {
   catalog: string[];
 };
 export type AgentInstall = { agent_yaml: string; compose: string; env: string; commands: string };
+
+export type NotifyChannel = {
+  id: number;
+  name: string;
+  kind: "email" | "webhook";
+  to?: string[];
+  url?: string;
+  has_secret: boolean;
+  events: string[];
+  tier: "all" | "prod" | "nonprod";
+  enabled: boolean;
+  created_by?: string;
+};
+export type NotifyDelivery = {
+  id: number;
+  channel: string;
+  event: string;
+  title: string;
+  status: "pending" | "sent" | "failed";
+  attempts: number;
+  last_error?: string;
+  created_at: string;
+  sent_at?: string;
+};
+export type SmtpStatus = {
+  configured: boolean;
+  host: string;
+  port: number;
+  security: "starttls" | "tls" | "none";
+  user: string;
+  from: string;
+  has_password: boolean;
+  updated_by?: string;
+  updated_at?: string;
+};
+export type NotifyEventType = { id: string; label: string; default: boolean };
+export type NotificationsResp = { smtp: SmtpStatus; channels: NotifyChannel[]; deliveries: NotifyDelivery[]; events: NotifyEventType[] };

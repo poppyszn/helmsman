@@ -176,6 +176,12 @@ func (s *Service) refresh(ctx context.Context, r store.ActionRun) error {
 			res = st
 		}
 		s.auditSystem(ctx, "action.run.completed", r, res, map[string]any{"status": st, "conclusion": gr.Conclusion, "gh_run_id": gr.ID})
+		switch st {
+		case "succeeded":
+			s.emit(ctx, "succeeded", r.ID)
+		case "failed":
+			s.emit(ctx, "failed", r.ID)
+		}
 	}
 	return nil
 }

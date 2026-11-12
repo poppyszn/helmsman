@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -20,6 +21,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/config"
 	"github.com/poppyszn/helmsman/internal/integrations"
 	"github.com/poppyszn/helmsman/internal/loki"
+	"github.com/poppyszn/helmsman/internal/notify"
 	"github.com/poppyszn/helmsman/internal/store"
 )
 
@@ -44,8 +46,10 @@ type Deps struct {
 	Loki loki.Source
 	// Integrations is the admin-managed connection to Loki (the Integrations page). Nil disables the page.
 	Integrations *integrations.Manager
-	Log          *slog.Logger
-	UI           fs.FS
+	// Notify stores and sends notifications. Nil disables the Notifications page.
+	Notify *notify.Service
+	Log    *slog.Logger
+	UI     fs.FS
 	// LogRecheck is how often open log streams re-check access (default 60 s).
 	LogRecheck time.Duration
 	// ActionsPerMinute caps state-changing requests per user (default 30); LogOpensPerMinute caps
@@ -62,6 +66,8 @@ type Server struct {
 	actionLimiter *rateLimiter
 	logLimiter    *rateLimiter
 	restarts      inflight
+	watchMu       sync.Mutex
+	watch         *watcher
 }
 
 // New builds the router. It returns an error if any route lacks a permission.
