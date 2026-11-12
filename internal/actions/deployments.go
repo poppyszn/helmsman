@@ -145,4 +145,5 @@ func (s *Service) DeploymentJobLog(ctx context.Context, a Actor, app, env string
 	}
 	return strings.TrimPrefix(text, "\ufeff"), cut, nil
 }
+
 var _ gh.API
