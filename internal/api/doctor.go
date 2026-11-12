@@ -131,10 +131,9 @@ func (s *Server) doctorSignIn(ctx context.Context, d *doctor) {
 	}
 	var admins int
 	if err := s.Store.Pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE is_admin`).Scan(&admins); err == nil {
-		switch {
-		case admins == 0:
+		if admins == 0 {
 			d.add("admins", g, "Administrators", checkWarn, "No administrator has signed in yet.", "Set IDP_BOOTSTRAP_ADMIN_GITHUB_IDS to your numeric GitHub ID (gh api users/<login> --jq .id), recreate the server and sign in.")
-		default:
+		} else {
 			d.add("admins", g, "Administrators", checkOK, fmt.Sprintf("%d administrator(s).", admins), "")
 		}
 	}
