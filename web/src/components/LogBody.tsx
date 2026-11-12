@@ -58,11 +58,22 @@ export function LogBody({ raw, parsed }: { raw: string; parsed: Parsed }) {
     case "access":
       return (
         <span className="min-w-0 break-all">
-          <span className="mr-2 inline-block w-14 font-semibold text-zinc-300">{parsed.method}</span>
-          <span className="text-zinc-100">{parsed.path}</span>
+          {/* The spaces keep the text copyable and searchable as written: "GET /path 200". */}
+          <span className="mr-2 inline-block w-14 font-semibold text-zinc-300">{parsed.method}</span>{" "}
+          <span className="text-zinc-100">{parsed.path}</span>{" "}
           <span className={cn("ml-3 font-semibold", statusColor(parsed.status))}>{parsed.status}</span>
-          {parsed.bytes && <span className="ml-3 text-zinc-500">{parsed.bytes} B</span>}
-          {parsed.client && <span className="ml-3 text-zinc-600">{parsed.client}</span>}
+          {parsed.bytes && (
+            <>
+              {" "}
+              <span className="ml-3 text-zinc-500">{parsed.bytes} B</span>
+            </>
+          )}
+          {parsed.client && (
+            <>
+              {" "}
+              <span className="ml-3 text-zinc-600">{parsed.client}</span>
+            </>
+          )}
         </span>
       );
     case "trace":
