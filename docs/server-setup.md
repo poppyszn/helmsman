@@ -324,7 +324,7 @@ Otherwise the repository needs a `workflow_dispatch` workflow that declares exac
 
 ### Access
 
-On **Access**, bind people and teams to roles. Team subjects are `org/team-slug`. A binding with `env: *` never matches a production environment, so production access is always an explicit binding. Production runs need approval from a second person with `action.approve`.
+On **Access**, bind people and teams to roles. Team subjects are `org/team-slug`. A binding with `env: *` never matches a production environment, so production access is always an explicit binding. By default production runs need approval from a second person with `action.approve`; set `require_approval: false` on an environment in the catalog to skip it (see `catalog.md`).
 
 ## Day to day
 

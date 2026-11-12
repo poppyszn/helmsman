@@ -33,6 +33,7 @@ apps:
           migrate: migrate.yml  # handles both migrate and seed
         github_environment: staging
         allow_seed: true        # default: true for nonprod, false for prod
+        require_approval: true  # default: true for prod, false for nonprod
 ```
 
 ## Quick links
@@ -49,6 +50,18 @@ apps:
         links:
           - { name: Grafana, url: https://grafana.example.com/d/billing-staging }
 ```
+
+## Approval
+
+By default a migration or seed on a `tier: prod` environment waits for a second person with `action.approve`, and runs on other environments start at once. Set `require_approval` on an environment to change that for it:
+
+```yaml
+      - env: prod
+        tier: prod
+        require_approval: false   # start production runs at once
+```
+
+With `false`, a run still needs the permission on that exact environment (a wildcard `env: *` binding never reaches production), seeds stay refused when `allow_seed` is false, and every run is audited, including that no approval was required. The real gate against someone running a workflow outside Helmsman is the GitHub environment's protection rules (required reviewers on the environment the workflow deploys to). Helmsman shows such a run as waiting for GitHub approval.
 
 ## Tiers and access
 

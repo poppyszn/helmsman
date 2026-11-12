@@ -225,7 +225,7 @@ When implementing or extending Milestone 3 (GitHub Action runs):
    - Record records in `action_runs` table (`id`, `correlation_id`, `requested_by`, `app_env_id`, `action`, `status`, `gh_run_id`, `gh_run_url`).
    - Supported statuses: `pending_approval`, `rejected`, `dispatching`, `queued`, `in_progress`, `waiting`, `succeeded`, `failed`, `cancelled`, `unknown`.
 3. **Approval Flow**:
-   - Production actions or restricted commands require `action.approve` permission from an authorized approver before dispatching.
+   - Production actions require `action.approve` permission from an authorized approver before dispatching. This is the default for `tier: prod`; an environment may set `require_approval: false` in the catalog (the permission on that environment, `allow_seed` and the audit entry still apply).
 4. **Safety Enforcements**:
    - Verify `allow_seed` flag before dispatching seeds.
    - Enforce concurrency groups so multiple migrations do not run simultaneously on the same environment.
