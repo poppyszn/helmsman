@@ -38,7 +38,10 @@ jobs:
     name: Verify
     # Only the two deploy branches have environments; a manual run from any
     # other branch would otherwise create a stray environment.
-    if: ${{ contains(fromJson('["main","production"]'), github.ref_name) }}
+    # The pipeline stays off until the repository variable DEPLOY_ENABLED is "true" (set it when the server and the
+    # GitHub Environment secrets exist). Without it every merge started a run that could only fail at the secrets
+    # check, and spent runner minutes doing it.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' && contains(fromJson('["main","production"]'), github.ref_name) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
