@@ -60,10 +60,8 @@ func (s *Server) installBundle(agentID, token string) map[string]string {
 		"# 1. create agent.yaml, compose.agent.yml and .env from the three files above\n" +
 		"# 2. set DOCKER_GID in .env:\n" +
 		"sed -i \"s/^DOCKER_GID=.*/DOCKER_GID=$(stat -c %g /var/run/docker.sock)/\" .env\n" +
-		"# 3. the agent image is private: log in, pull, log out, start\n" +
-		"docker login ghcr.io -u <your github login>\n" +
+		"# 3. pull and start (if the agent package is private, run docker login ghcr.io first and docker logout ghcr.io after)\n" +
 		"docker compose -f compose.agent.yml --env-file .env pull\n" +
-		"docker logout ghcr.io\n" +
 		"docker compose -f compose.agent.yml --env-file .env up -d\n" +
 		"docker compose -f compose.agent.yml --env-file .env logs --tail 20   # joined, then connected\n"
 	return map[string]string{"agent_yaml": agentYAML, "compose": agentCompose, "env": env, "commands": commands}
