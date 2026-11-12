@@ -12,6 +12,7 @@ import Agents from "@/pages/admin/Agents";
 import Approvals from "@/pages/Approvals";
 import GitHub from "@/pages/admin/GitHub";
 import Integrations from "@/pages/admin/Integrations";
+import Notifications from "@/pages/admin/Notifications";
 import Doctor from "@/pages/admin/Doctor";
 
 function Protected() {
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/admin/github" element={<GitHub />} />
         <Route path="/admin/integrations" element={<Integrations />} />
+        <Route path="/admin/notifications" element={<Notifications />} />
         <Route path="/admin/doctor" element={<Doctor />} />
         <Route path="/admin/audit" element={<Audit />} />
       </Route>

@@ -31,6 +31,7 @@ See the directory layout in `docs/catalog.md` and the code comments. Key parts: 
 - [Agent install](docs/agent-install.md)
 - [Catalog reference](docs/catalog.md)
 - [Log history](docs/logs.md): Loki and Alloy, nginx and browser (Faro) logs, filters
+- [Notifications](docs/notifications.md): email and webhook alerts for failures, outages and approvals
 - [Server setup](docs/server-setup.md): put Helmsman on a public server and deploy it from GitHub Actions
 - [Runbook](docs/runbook.md): operations, production deploy, backups, load test
 - [Security checklist](docs/security.md): each control, where it lives and its test

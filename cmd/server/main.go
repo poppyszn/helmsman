@@ -23,6 +23,7 @@ import (
 	"github.com/poppyszn/helmsman/internal/gh"
 	"github.com/poppyszn/helmsman/internal/health"
 	"github.com/poppyszn/helmsman/internal/integrations"
+	"github.com/poppyszn/helmsman/internal/notify"
 	"github.com/poppyszn/helmsman/internal/store"
 	"github.com/poppyszn/helmsman/web"
 )
@@ -87,10 +88,18 @@ func run(log *slog.Logger) error {
 	if err := integ.Load(ctx); err != nil {
 		log.Error("load integrations", "err", err)
 	}
-	srv, err := api.New(api.Deps{Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Log: log, UI: web.Dist()})
+	notifySvc := notify.New(st, cfg.EncryptionKey, cfg.BaseURL, log)
+	actSvc.Hook = func(ctx context.Context, kind string, run store.ActionRun) {
+		if ev, ok := notify.RunEvent(kind, run); ok {
+			notifySvc.Emit(ctx, ev)
+		}
+	}
+	go notifySvc.Run(ctx)
+	srv, err := api.New(api.Deps{Notify: notifySvc, Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Log: log, UI: web.Dist()})
 	if err != nil {
 		return err
 	}
+	go srv.RunNotifyWatcher(ctx)
 	hs := &http.Server{Addr: cfg.Listen, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
