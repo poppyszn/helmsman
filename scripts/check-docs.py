@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "AGENTS.md"] + sorted((ROOT / "docs").glob("*.md")) + sorted((ROOT / "examples").rglob("*.md"))
+FILES = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "AGENTS.md"] + sorted((ROOT / "docs").glob("*.md")) + sorted((ROOT / "examples").rglob("*.md")) + sorted((ROOT / "templates").rglob("*.md"))
 
 LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")

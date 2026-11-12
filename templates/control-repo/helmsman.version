@@ -1,0 +1,3 @@
+# The Helmsman server image this repository runs, as image:tag. Change it in a pull request to upgrade or roll back.
+# Prefer a version tag or a commit tag (sha-xxxxxxx) over latest, so a deploy is repeatable. One line, no spaces.
+ghcr.io/poppyszn/helmsman-server:latest

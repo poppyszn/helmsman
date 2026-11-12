@@ -1,0 +1,23 @@
+# The agent for one app host. Copy this folder to agents/<agent id>/ and edit it.
+# The portal's Agents page generates the same files with the join token filled in; this copy has no secret, so it
+# can live in git. The token and the other host values go in the host's .env (see env.example).
+# The agent refuses anything not listed here, even if the server asks for it.
+idp_url: wss://portal.example.com/agent/ws
+
+# Optional: report the names (not logs) of compose services on this host that are not listed below, so the portal's
+# Agents > Containers view can draft the entries to add them.
+discovery: false
+
+allow:
+  - compose_project: my-app          # the docker compose project name on that host
+    services: [api]                  # only these services are visible
+    actions: [logs, restart]         # logs, restart: there is nothing else the agent can do
+    # health_urls:                   # only for catalog checks with `via: agent`; must match health.url exactly
+    #   - http://api:8080/health
+
+limits:
+  max_streams: 5
+  max_lines_per_sec: 500
+  max_line_bytes: 16384
+
+snapshot_interval: 30s
