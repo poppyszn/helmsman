@@ -8,6 +8,18 @@ test.describe("sign in and out", () => {
     await expect(page.getByRole("link", { name: "Sign in with GitHub" })).toBeVisible();
   });
 
+  test("the app has a favicon, served without signing in", async ({ page, request }) => {
+    await page.goto("/login");
+    await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute("href", "/favicon.svg");
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", "/apple-touch-icon.png");
+    for (const [path, type] of [["/favicon.svg", "image/svg+xml"], ["/favicon.ico", "image/"], ["/apple-touch-icon.png", "image/png"]] as const) {
+      const res = await request.get(path);
+      expect(res.status(), path).toBe(200);
+      expect(res.headers()["content-type"], path).toContain(type);
+      expect((await res.body()).length, path).toBeGreaterThan(100);
+    }
+  });
+
   test("alice signs in with GitHub and lands on the applications", async ({ page }) => {
     await loginAs(page, "alice");
     await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
