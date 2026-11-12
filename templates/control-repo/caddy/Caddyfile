@@ -1,0 +1,18 @@
+# TLS in front of Helmsman. For a public DNS name, leave CADDY_TLS empty and Caddy obtains and
+# renews a Let's Encrypt certificate (ports 80 and 443 must be reachable from the internet).
+# For a private name or IP, set CADDY_TLS="tls internal"; Caddy then issues from its own CA and
+# browsers and agents must trust its root certificate.
+{$IDP_HOST} {
+	{$CADDY_TLS}
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	request_body {
+		max_size 64KB
+	}
+
+	# WebSockets (agents and log streams) pass through with no read timeout, so long-lived
+	# connections stay open.
+	reverse_proxy server:8080 {
+		flush_interval -1
+	}
+}

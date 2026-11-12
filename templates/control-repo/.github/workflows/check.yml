@@ -1,0 +1,38 @@
+# Pull request checks: the catalog is valid and the scripts parse. Needs nothing from the server.
+name: "CI: Checks"
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shell scripts parse
+        run: |
+          bash -n preflight.sh
+          bash -n up.sh
+          sh -n db/00-app-role.sh
+      - name: Compose file is valid
+        run: |
+          touch .env   # the server service reads it; the real one lives only on the host
+          HELMSMAN_IMAGE=example/image:tag POSTGRES_PASSWORD=x APP_DB_PASSWORD=x GITHUB_APP_KEY_FILE=/dev/null \
+            IDP_HOST=example.com docker compose --profile caddy -f compose.yml config -q
+      - name: Catalog is valid
+        # Runs the same validation the server runs when it loads the catalog, using the image this repository deploys.
+        # The package must be public, or log in to ghcr.io first.
+        run: |
+          image=$(grep -vE '^\s*(#|$)' helmsman.version | head -1 | tr -d '[:space:]')
+          docker run --rm -v "$PWD/catalog/apps.yaml:/apps.yaml:ro" "$image" catalog-check /apps.yaml

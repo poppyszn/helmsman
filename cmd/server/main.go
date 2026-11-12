@@ -33,6 +33,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		os.Exit(healthcheck())
 	}
+	// "server catalog-check <file>" validates a catalog file, for CI in a repository that holds the catalog.
+	if len(os.Args) > 1 && os.Args[1] == "catalog-check" {
+		os.Exit(catalogCheck(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(log); err != nil {
 		log.Error("fatal", "err", err)

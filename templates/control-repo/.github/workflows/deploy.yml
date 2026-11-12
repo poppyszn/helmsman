@@ -1,0 +1,88 @@
+# Puts this repository's server files on the Helmsman host and starts the stack, on every merge to main.
+# Set up once: see README.md. It stays off until the repository variable DEPLOY_ENABLED is "true", so a repository
+# with no server yet does not spend runner minutes on runs that can only fail.
+#
+# What it does: copy the files (never .env), run the host's preflight, pull the image named in helmsman.version,
+# start the stack and wait until it is healthy, then check the portal's /readyz from outside.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancel one halfway: a cancelled deploy can leave the host between two states.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Holds the SSH secrets. Add required reviewers to this environment for a manual gate.
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Pin the host key
+        env:
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          # Checking is strict: only the host whose key is in SSH_KNOWN_HOSTS (ssh-keyscan output) can answer.
+          [ -n "$SSH_KNOWN_HOSTS" ] || { echo "SSH_KNOWN_HOSTS is empty. Store the output of: ssh-keyscan -p <port> <host>" >&2; exit 1; }
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          printf 'Host *\n  StrictHostKeyChecking yes\n' >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Copy the files
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          WORKING_DIR: ${{ secrets.WORKING_DIR }}
+        run: |
+          : "${SSH_PORT:=22}"
+          dir=$(printf '%q' "$WORKING_DIR")
+          # .env stays on the host and is never created or overwritten by a deploy.
+          tar --exclude=.git --exclude=.github --exclude=.env -czf - . \
+            | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $dir && tar -xzf - -C $dir"
+
+      - name: Preflight, pull and start
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          WORKING_DIR: ${{ secrets.WORKING_DIR }}
+        run: |
+          : "${SSH_PORT:=22}"
+          dir=$(printf '%q' "$WORKING_DIR")
+          # The preflight stops the deploy before anything changes if .env is missing something.
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "cd $dir && bash preflight.sh && ./up.sh pull && ./up.sh up -d --wait --wait-timeout 180 && ./up.sh ps"
+
+      - name: Check the portal
+        if: ${{ vars.HEALTH_URL != '' }}
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 10 "$HEALTH_URL" >/dev/null; then echo "ready"; exit 0; fi
+            sleep 5
+          done
+          echo "the portal did not answer at $HEALTH_URL" >&2
+          exit 1

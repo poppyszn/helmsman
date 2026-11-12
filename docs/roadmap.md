@@ -29,7 +29,7 @@ Notifications already go to email and webhooks ([notifications.md](notifications
 | Item | Status | Why and notes |
 |---|---|---|
 | Bulk adopt for hosts with many apps | Planned | Group discovered containers into apps and environments from naming patterns (`name-env`), pre-fill the repository from image labels, and produce one reviewed `apps.yaml` block. Make the migrate workflow, URL and health URL optional first, so an app can be adopted for status, logs and restarts alone. |
-| Per-organization repository template | Planned | A private repository per org holding the portal's compose file, `apps.yaml` and each host's agent files, with a catalog checker. Copy and adjust. |
+| Per-organization repository template | In progress | [`templates/control-repo`](../templates/control-repo/README.md) is the portal's compose file, catalog, deploy workflow and a catalog check (`server catalog-check`). Still to add: each host's agent files, log history and backups in the template. |
 | Workflow detection | Considering | Use the GitHub App to list an app repository's workflows and suggest the deploy and migrate ones. |
 | UI-managed catalog | Considering | Let admins edit the catalog in the interface, stored in the database, as an alternative to the reviewed YAML file. Trade-off: easier for many apps, harder to review. |
 

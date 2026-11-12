@@ -1,0 +1,6 @@
+# The Helmsman catalog: which apps, environments and agents Helmsman shows.
+# Change it in a pull request. The pull request check validates it, and a merge to main puts it on the
+# server, which reloads it within 30 seconds (no restart). Fields: docs/catalog.md in the Helmsman repository.
+# Agents are created on the Agents page before an environment can name them.
+version: 1
+apps: []
