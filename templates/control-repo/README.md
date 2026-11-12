@@ -17,7 +17,7 @@ caddy/ db/            files compose.yml mounts
 
 The full walkthrough, with every command, is [docs/server-setup.md](https://github.com/poppyszn/helmsman/blob/main/docs/server-setup.md) in the Helmsman repository. The steps differ only where this repository replaces the Helmsman checkout:
 
-1. **Server.** Docker with Compose v2, a `deploy` user in the `docker` group, `/opt/helmsman` owned by `deploy` and `/opt/helmsman-secrets` (mode 700). Open 22, 80 and 443. Point a DNS name at it. (Server setup, step 1.)
+1. **Server.** Docker with Compose v2, a `deploy` user in the `docker` group, `/opt/helmsman` owned by `deploy` and `/opt/helmsman-secrets` (mode 700, also owned by `deploy`, so the preflight can see the key file inside it). Open 22, 80 and 443. Point a DNS name at it. (Server setup, step 1.)
 2. **GitHub registrations.** An OAuth App for sign-in and a GitHub App for runs, and the App's private key at `/opt/helmsman-secrets/github-app.pem` owned by 65532. (Step 2.) Create the GitHub App in the organization that owns the app repositories.
 3. **The image must be pullable.** `helmsman.version` names a GitHub package. Make that package public (package settings), or log the server in to `ghcr.io` once with a `read:packages` token.
 4. **Secrets for the deploy.** Create a deploy key and pin the host key (server setup, step 3, option B), then store them in a GitHub Environment named `production` in this repository:

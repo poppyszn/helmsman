@@ -21,7 +21,10 @@ for v in IDP_BASE_URL IDP_SESSION_KEY IDP_ENCRYPTION_KEY IDP_ALLOWED_ORGS POSTGR
 done
 [ -z "$missing" ] || { echo "preflight: .env is missing:$missing" >&2; exit 1; }
 
-[ -r "$GITHUB_APP_KEY_FILE" ] || { echo "preflight: GITHUB_APP_KEY_FILE ($GITHUB_APP_KEY_FILE) is not a readable file" >&2; exit 1; }
+# Only existence is checked: the key is owned by uid 65532 with mode 400 (the server container's user), so this user
+# cannot read it, and Docker, which runs as root, mounts it. The folder must be reachable by this user, or the file
+# looks missing: sudo chown deploy:deploy /opt/helmsman-secrets
+[ -e "$GITHUB_APP_KEY_FILE" ] || { echo "preflight: GITHUB_APP_KEY_FILE ($GITHUB_APP_KEY_FILE) does not exist, or its folder cannot be reached by $(id -un). Upload the key, and run: sudo chown $(id -un):$(id -gn) $(dirname "$GITHUB_APP_KEY_FILE")" >&2; exit 1; }
 # The server container runs as uid 65532. A key it cannot read shows up later as "private key could not be read".
 if [ "$(stat -c %u "$GITHUB_APP_KEY_FILE" 2>/dev/null || echo x)" != 65532 ] && [ "$(( 0$(stat -c %a "$GITHUB_APP_KEY_FILE" 2>/dev/null || echo 0) & 4 ))" -eq 0 ]; then
   echo "preflight: warning: $GITHUB_APP_KEY_FILE is not readable by the server (uid 65532). Run: sudo chown 65532:65532 $GITHUB_APP_KEY_FILE && sudo chmod 400 $GITHUB_APP_KEY_FILE" >&2

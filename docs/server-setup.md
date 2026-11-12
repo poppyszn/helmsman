@@ -26,7 +26,7 @@ You need an x86 or arm64 Linux server with a public IP, Docker Engine with Compo
 adduser --disabled-password --gecos "" deploy
 usermod -aG docker deploy
 mkdir -p /opt/helmsman /opt/helmsman-secrets
-chown deploy:deploy /opt/helmsman
+chown deploy:deploy /opt/helmsman /opt/helmsman-secrets
 chmod 700 /opt/helmsman-secrets
 ```
 
