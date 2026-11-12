@@ -3,7 +3,7 @@ version: 1
 apps:
   - id: demo-app
     name: Demo App
-    repo: pops-personal-org/demo-app
+    repo: acme-org/demo-app
     environments:
       - env: staging
         tier: nonprod

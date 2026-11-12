@@ -13,7 +13,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What a pull request touches decides what is worth running, to save runner minutes: a docs-only change
+  # needs only the docs check, and the image builds and scans matter when Dockerfiles, dependencies or
+  # workflows change. A manual run (workflow_dispatch) runs everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.f.outputs.code }}
+      images: ${{ steps.f.outputs.images }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != pull_request ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "images=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE" HEAD)
+          echo "$files"
+          # Anything that is not documentation counts as code.
+          code=false; images=false
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            case "$f" in
+              *.md|docs/*|LICENSE|.github/ISSUE_TEMPLATE/*|scripts/check-docs.py) ;;
+              *) code=true ;;
+            esac
+            case "$f" in
+              deploy/docker/*|go.mod|go.sum|web/package.json|web/package-lock.json|.github/workflows/*) images=true ;;
+            esac
+          done <<< "$files"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+
   go:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -49,6 +89,8 @@ jobs:
       - run: python3 scripts/check-docs.py
 
   web:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -69,7 +111,9 @@ jobs:
 
   images:
     runs-on: ubuntu-latest
-    needs: [go, web]
+    needs: [changes, go, web]
+    if: needs.changes.outputs.images == 'true'
+    # Dockerfiles, dependencies and workflows: the only changes that can alter what the images contain.
     strategy:
       matrix:
         image: [server, agent]
@@ -92,6 +136,8 @@ jobs:
           ignore-unfixed: true
 
   compose:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -163,8 +209,9 @@ jobs:
           exit-code: "1"
 
   e2e:
+    needs: [changes, go, web]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    needs: [go, web]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7

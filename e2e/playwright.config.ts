@@ -37,7 +37,7 @@ export default defineConfig({
       name: "server",
       testDir: "./tests/server",
       use: {
-        baseURL: process.env.E2E_SERVER_URL ?? "https://portal.alphaskysolutions.com",
+        baseURL: process.env.E2E_SERVER_URL ?? "https://portal.example.com",
         // Only for a private CA (a pilot or a local rehearsal). Leave unset against a real certificate.
         ignoreHTTPSErrors: process.env.E2E_INSECURE_TLS === "true",
       },

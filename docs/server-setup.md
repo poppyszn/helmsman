@@ -105,7 +105,11 @@ The workflow deploys `main` to a GitHub Environment called `develop` and `produc
    gh variable set HEALTH_URL    --env develop -R $R --body "https://portal.example.com/readyz"
    # only if SSH is not on port 22:  gh secret set SSH_PORT --env develop -R $R --body "2222"
    ```
-   Then delete the private key from your laptop.
+   Then delete the private key from your laptop, and turn the pipeline on. It is off until this repository variable exists, so a repository that has no server yet does not spend runner minutes on deploys that can only fail:
+
+   ```bash
+   gh variable set DEPLOY_ENABLED --body true -R $R
+   ```
 3. Run **Actions > Deploy > Run workflow** on `main`. It builds the image, puts the repository at `/opt/helmsman/helmsman` and **stops at the preflight step** because there is no `.env` yet. That is expected.
 4. `cd /opt/helmsman/helmsman/deploy/server` on the server and continue below.
 
@@ -251,7 +255,7 @@ Open `https://portal.example.com` and sign in with GitHub.
 
 ## 7. Check the live server
 
-From your laptop, in the repository, `make e2e-server` checks without changing anything: HTTPS and the certificate, the redirect, the security headers, that the sign-in redirect uses state and PKCE with the right callback URL, that the API is closed without a session, and that an agent cannot connect without a credential. Set `E2E_SERVER_URL` if your name differs from the default. To also test the signed-in pages, turn on the break-glass admin (see the runbook) and pass `E2E_BREAKGLASS_PASSWORD` and `E2E_BREAKGLASS_TOTP_SECRET`.
+From your laptop, in the repository, `make e2e-server` checks without changing anything: HTTPS and the certificate, the redirect, the security headers, that the sign-in redirect uses state and PKCE with the right callback URL, that the API is closed without a session, and that an agent cannot connect without a credential. Set `E2E_SERVER_URL` to your portal address, for example `E2E_SERVER_URL=https://portal.example.com make e2e-server`. To also test the signed-in pages, turn on the break-glass admin (see the runbook) and pass `E2E_BREAKGLASS_PASSWORD` and `E2E_BREAKGLASS_TOTP_SECRET`.
 
 ## 8. Connect an app
 
