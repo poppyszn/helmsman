@@ -95,7 +95,7 @@ func run(log *slog.Logger) error {
 		}
 	}
 	go notifySvc.Run(ctx)
-	srv, err := api.New(api.Deps{Notify: notifySvc, Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Log: log, UI: web.Dist()})
+	srv, err := api.New(api.Deps{Notify: notifySvc, ActionsPerMinute: cfg.ActionsPerMinute, LogOpensPerMinute: cfg.LogOpensPerMinute, Cfg: cfg, DB: st, Store: st, Audit: aw, Auth: authSvc, Catalog: cat, Hub: hub, Actions: actSvc, Logs: hub, Loki: integ, Integrations: integ, Log: log, UI: web.Dist()})
 	if err != nil {
 		return err
 	}

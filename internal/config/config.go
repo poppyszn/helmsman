@@ -52,6 +52,11 @@ type Config struct {
 	// AuthRatePerMinute caps sign-in and agent-join attempts per client address (default 20).
 	// The dev stack raises it so end-to-end tests can sign in many times.
 	AuthRatePerMinute int
+	// ActionsPerMinute caps state-changing requests per signed-in user (default 30) and LogOpensPerMinute caps
+	// log streams and history searches per user (default 60). The end-to-end tests raise them, since one test
+	// user makes many requests.
+	ActionsPerMinute  int
+	LogOpensPerMinute int
 	// GitHub endpoints. Defaults point at github.com; fake mode points at fake-github.
 	GitHubAuthURL  string // browser-facing authorize endpoint
 	GitHubTokenURL string // server-side token endpoint
@@ -114,6 +119,20 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 	}
 	var errs []error
 	c.AuthRatePerMinute = 20
+	c.ActionsPerMinute, c.LogOpensPerMinute = 30, 60
+	for _, l := range []struct {
+		env string
+		dst *int
+	}{{"IDP_ACTIONS_PER_MINUTE", &c.ActionsPerMinute}, {"IDP_LOG_OPENS_PER_MINUTE", &c.LogOpensPerMinute}} {
+		if v := get(l.env, ""); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 1 {
+				errs = append(errs, fmt.Errorf("%s must be a positive number, got %q", l.env, v))
+			} else {
+				*l.dst = n
+			}
+		}
+	}
 	if v := get("IDP_AUTH_RATE_PER_MINUTE", ""); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {

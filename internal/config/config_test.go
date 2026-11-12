@@ -74,3 +74,22 @@ func TestBreakglassNeedsItsSecrets(t *testing.T) {
 		t.Fatalf("%v %+v", err, c)
 	}
 }
+
+func TestPerUserLimits(t *testing.T) {
+	c, err := FromLookup(lookup(valid()))
+	if err != nil || c.ActionsPerMinute != 30 || c.LogOpensPerMinute != 60 {
+		t.Fatalf("defaults: %v %+v", err, c)
+	}
+	m := valid()
+	m["IDP_ACTIONS_PER_MINUTE"], m["IDP_LOG_OPENS_PER_MINUTE"] = "600", "120"
+	c, err = FromLookup(lookup(m))
+	if err != nil || c.ActionsPerMinute != 600 || c.LogOpensPerMinute != 120 {
+		t.Fatalf("set: %v %+v", err, c)
+	}
+	for _, bad := range []string{"0", "-1", "many"} {
+		m["IDP_ACTIONS_PER_MINUTE"] = bad
+		if _, err := FromLookup(lookup(m)); err == nil || !strings.Contains(err.Error(), "IDP_ACTIONS_PER_MINUTE") {
+			t.Fatalf("%q must be refused: %v", bad, err)
+		}
+	}
+}
