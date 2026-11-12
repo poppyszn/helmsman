@@ -57,6 +57,8 @@ services:
       IDP_DISPLAY_TZ: ${IDP_DISPLAY_TZ:-Africa/Lagos}
       # End-to-end tests sign in many times from one address.
       IDP_AUTH_RATE_PER_MINUTE: "300"
+      IDP_ACTIONS_PER_MINUTE: "600"
+      IDP_LOG_OPENS_PER_MINUTE: "600"
       # Log history: set by `make up-logs`, which also starts Loki and Alloy.
       IDP_LOKI_URL: ${IDP_LOKI_URL:-}
     ports: ["127.0.0.1:8080:8080"]
