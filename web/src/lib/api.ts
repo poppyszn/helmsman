@@ -254,6 +254,8 @@ export type NotifyChannel = {
   has_secret: boolean;
   events: string[];
   tier: "all" | "prod" | "nonprod";
+  apps: string[];
+  envs: string[];
   enabled: boolean;
   created_by?: string;
 };
@@ -279,5 +281,5 @@ export type SmtpStatus = {
   updated_by?: string;
   updated_at?: string;
 };
-export type NotifyEventType = { id: string; label: string; default: boolean };
+export type NotifyEventType = { id: string; group: string; label: string; default: boolean };
 export type NotificationsResp = { smtp: SmtpStatus; channels: NotifyChannel[]; deliveries: NotifyDelivery[]; events: NotifyEventType[] };

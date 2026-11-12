@@ -56,7 +56,7 @@ func (s *Service) Emit(ctx context.Context, ev Event) {
 		ev.Key = ev.Type + ":" + ev.App + "/" + ev.Env
 	}
 	ctx = context.WithoutCancel(ctx)
-	rows, err := s.St.Pool.Query(ctx, `SELECT id, events, tier FROM notification_channels WHERE enabled`)
+	rows, err := s.St.Pool.Query(ctx, `SELECT id, events, tier, apps, envs FROM notification_channels WHERE enabled`)
 	if err != nil {
 		s.Log.Error("notify: list channels", "err", err)
 		return
@@ -65,18 +65,20 @@ func (s *Service) Emit(ctx context.Context, ev Event) {
 		id     int64
 		events []string
 		tier   string
+		apps   []string
+		envs   []string
 	}
 	var targets []target
 	for rows.Next() {
 		var t target
-		if err := rows.Scan(&t.id, &t.events, &t.tier); err == nil {
+		if err := rows.Scan(&t.id, &t.events, &t.tier, &t.apps, &t.envs); err == nil {
 			targets = append(targets, t)
 		}
 	}
 	rows.Close()
 	payload, _ := json.Marshal(ev)
 	for _, t := range targets {
-		if !Matches(t.events, t.tier, ev) {
+		if !Matches(t.events, Scope{Tier: t.tier, Apps: t.apps, Envs: t.envs}, ev) {
 			continue
 		}
 		// The same thing is never announced twice to a channel, and a flapping environment is held back.
