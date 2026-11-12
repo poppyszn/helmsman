@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths-ignore:
       - "**/*.md"
+      - "agents/**"   # agent files go on app hosts, not on the portal host
   workflow_dispatch:
 
 permissions:
@@ -59,7 +60,7 @@ jobs:
           : "${SSH_PORT:=22}"
           dir=$(printf '%q' "$WORKING_DIR")
           # .env stays on the host and is never created or overwritten by a deploy.
-          tar --exclude=.git --exclude=.github --exclude=.env -czf - . \
+          tar --exclude=.git --exclude=.github --exclude=.env --exclude=./agents -czf - . \
             | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $dir && tar -xzf - -C $dir"
 
       - name: Preflight, pull and start

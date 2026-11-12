@@ -10,6 +10,7 @@ up.sh                 docker compose for this stack with that image, on the host
 preflight.sh          stops a deploy before anything changes if the host's .env is incomplete
 env.example           the host's .env, filled in once on the server, never committed
 caddy/ db/            files compose.yml mounts
+agents/               one folder per app host: agent.yaml and compose.agent.yml (see agents/README.md)
 .github/workflows/    check.yml (pull requests) and deploy.yml (merge to main)
 ```
 
@@ -58,5 +59,6 @@ Create a private repository there, copy this folder's contents into it, and repe
 
 ## Not included yet
 
+- Putting agent files on app hosts from the workflow (copy them by hand for now, see `agents/README.md`).
 - Log history (Loki and Alloy) and the nightly Postgres backup that the Helmsman repository's own server stack has. Back up the `pgdata` volume some other way for now. They are on the [roadmap](https://github.com/poppyszn/helmsman/blob/main/docs/roadmap.md).
 - Removing a file from the repository does not remove it from the server; delete it on the host.
