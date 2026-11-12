@@ -1,0 +1,6 @@
+# /opt/helmsman-agent/.env, written by install.sh. chmod 600.
+# The join token is single use and is removed by install.sh once the agent has joined.
+IDP_JOIN_TOKEN=
+AGENT_VERSION=latest
+# The group id of the Docker socket on this host: stat -c %g /var/run/docker.sock
+DOCKER_GID=

@@ -68,3 +68,6 @@ seed-dev: ## Seed the dev agent, users and role bindings
 
 server-bundle: ## Zip the files a server needs, for copying by hand (see docs/server-setup.md)
 	bash deploy/server/bundle.sh
+
+install-kit: ## Build the public install kit into OUT=<folder> (default tmp/helmsman-install); KIT_REPO=owner/name sets the clone address
+	bash deploy/kit/build.sh $(or $(OUT),tmp/helmsman-install)
