@@ -1,5 +1,9 @@
 name: "Publish: Images"
 
+# Each image is built for amd64 and arm64 on a native runner of that architecture (no emulation), pushed by digest,
+# and then joined into one multi-arch tag. A merge to main publishes `latest` and `sha-<short>`; a v* tag also
+# publishes the version tag.
+
 on:
   push:
     branches: [main]
@@ -7,14 +11,73 @@ on:
     paths-ignore:
       - "**/*.md"
       - "docs/**"
+      - "templates/**"
     tags: ["v*"]
+  # Run it by hand on any branch to try a change to this workflow: only the sha tag is pushed there.
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  publish:
+  build:
+    name: build (${{ matrix.image }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, agent]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/helmsman-${{ matrix.image }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/${{ matrix.image }}.Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Pushed by digest only; the merge job gives the digests their tags.
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/helmsman-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
+      - name: Export the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: publish (${{ matrix.image }})
+    needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -22,11 +85,11 @@ jobs:
       matrix:
         image: [server, agent]
     steps:
-      - uses: actions/checkout@v7
-      # Emulation for arm64 is slow and costs runner minutes, so it is only used for release tags. Merges to main
-      # publish amd64, which is what the servers run.
-      - uses: docker/setup-qemu-action@v4
-        if: startsWith(github.ref, 'refs/tags/')
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -41,13 +104,17 @@ jobs:
             type=sha
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/docker/${{ matrix.image }}.Dockerfile
-          platforms: ${{ startsWith(github.ref, 'refs/tags/') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Create the multi-arch tags
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/helmsman-${{ matrix.image }}
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          # Every tag points at one manifest list made of the amd64 and arm64 digests.
+          tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          refs=$(printf "$IMAGE@sha256:%s " *)
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags $refs
+      - name: Show the result
+        run: |
+          first=$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          docker buildx imagetools inspect "$first"
