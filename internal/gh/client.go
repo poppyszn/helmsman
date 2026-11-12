@@ -25,6 +25,7 @@ type Run struct {
 	Conclusion string    `json:"conclusion"` // success | failure | cancelled ...
 	HeadSHA    string    `json:"head_sha"`
 	HeadBranch string    `json:"head_branch"`
+	Path       string    `json:"path"` // .github/workflows/ci.yml, possibly with @ref
 	HTMLURL    string    `json:"html_url"`
 	Event      string    `json:"event"`
 	CreatedAt  time.Time `json:"created_at"`
@@ -117,6 +118,7 @@ func fromResponse(res *http.Response) error {
 type API interface {
 	Dispatch(ctx context.Context, repo, workflow, ref string, inputs map[string]string) error
 	ListRuns(ctx context.Context, repo, workflow string, perPage int, cacheTTL time.Duration) ([]Run, error)
+	ListRepoRuns(ctx context.Context, repo string, perPage int) ([]Run, error)
 	GetRun(ctx context.Context, repo string, id int64) (Run, error)
 	ListJobs(ctx context.Context, repo string, runID int64) ([]Job, error)
 	JobLogs(ctx context.Context, repo string, jobID int64, maxBytes int) (string, bool, error)
@@ -281,6 +283,17 @@ func (c *Client) ListRuns(ctx context.Context, repo, workflow string, perPage in
 	}
 	p := fmt.Sprintf("/repos/%s/actions/workflows/%s/runs?per_page=%d", repo, wf(workflow), perPage)
 	if err := c.getJSON(ctx, repo, p, ttl, &out); err != nil {
+		return nil, err
+	}
+	return out.Runs, nil
+}
+
+// ListRepoRuns lists recent runs of every workflow in a repository, newest first.
+func (c *Client) ListRepoRuns(ctx context.Context, repo string, perPage int) ([]Run, error) {
+	var out struct {
+		Runs []Run `json:"workflow_runs"`
+	}
+	if err := c.getJSON(ctx, repo, fmt.Sprintf("/repos/%s/actions/runs?per_page=%d", repo, perPage), 0, &out); err != nil {
 		return nil, err
 	}
 	return out.Runs, nil
