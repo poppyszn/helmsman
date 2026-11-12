@@ -101,3 +101,27 @@ func TestLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestTags(t *testing.T) {
+	ok := strings.Replace(good, "    repo: acme-org/billing-api\n", "    repo: acme-org/billing-api\n    tags: [api, payments]\n", 1)
+	c, err := Parse([]byte(ok))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errs := Validate(c, known("staging-app-01", "prod-app-01")); len(errs) != 0 {
+		t.Fatalf("valid tags rejected: %v", JoinErrors(errs))
+	}
+	for name, tags := range map[string]string{"uppercase": "[API]", "space": "['two words']", "symbol": "['a/b']", "empty": "['']"} {
+		bad := strings.Replace(good, "    repo: acme-org/billing-api\n", "    repo: acme-org/billing-api\n    tags: "+tags+"\n", 1)
+		c, err := Parse([]byte(bad))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if errs := Validate(c, known("staging-app-01", "prod-app-01")); len(errs) == 0 {
+			t.Errorf("%s: expected a validation error", name)
+		}
+	}
+	if got := mergeTags([]string{"api", "x"}, []string{"x", "ui"}); strings.Join(got, ",") != "api,x,ui" {
+		t.Fatalf("merge: %v", got)
+	}
+}

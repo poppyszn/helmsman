@@ -3,6 +3,7 @@ apps:
   - id: demo-app
     name: Demo App
     repo: acme-org/demo-app
+    tags: [api, demo]
     links:
       - { name: Runbook, url: https://wiki.example.com/demo-app }
     environments:
@@ -31,6 +32,7 @@ apps:
   - id: static-demo
     name: Static Demo
     repo: acme-org/demo-app
+    tags: [ui, demo]
     environments:
       - env: staging
         tier: nonprod
@@ -42,3 +44,18 @@ apps:
         github_environment: staging
         # The page posts Faro telemetry with this app name and the environment "staging".
         logs: { faro_app: static-demo }
+  # An app of a second organization, so the organization switcher can be tried locally. Its repository is not
+  # installed in the fake GitHub, which only matters for migrations and seeds.
+  - id: ledger-demo
+    name: Ledger Demo
+    repo: other-org/ledger-demo
+    tags: [api, finance]
+    environments:
+      - env: staging
+        tier: nonprod
+        agent: dev-agent
+        container: { compose_project: helmsman-dev, service: demo-app-2 }
+        url: http://localhost:9002
+        health: { url: http://demo-app-2:8080/health, via: agent }
+        workflows: { migrate: migrate.yml }
+        github_environment: staging
