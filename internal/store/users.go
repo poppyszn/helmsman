@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -56,7 +57,7 @@ func (s *Store) UpsertLogin(ctx context.Context, in LoginInfo, tokenEnc []byte, 
 		  login = EXCLUDED.login, name = EXCLUDED.name, email = EXCLUDED.email,
 		  avatar_url = EXCLUDED.avatar_url, gh_token_enc = EXCLUDED.gh_token_enc,
 		  is_admin = users.is_admin OR (EXCLUDED.is_admin AND users.last_login_at IS NULL),
-		  last_login_at = now()
+		  last_login_at = now(), access_dismissed_at = NULL
 		RETURNING `+userCols,
 		in.GitHubID, in.Login, nullable(in.Name), nullable(in.Email), nullable(in.AvatarURL), bootstrapAdmin, tokenEnc), &u)
 	return u, err
@@ -205,4 +206,62 @@ func (s *Store) UpsertBreakglass(ctx context.Context, login string) (User, error
 		ON CONFLICT (github_id) DO UPDATE SET login = EXCLUDED.login, is_admin = true, last_login_at = now(), disabled_at = NULL
 		RETURNING `+userCols, login), &u)
 	return u, err
+}
+
+// PendingUser is someone who signed in and has no access yet.
+type PendingUser struct {
+	ID          int64        `json:"id"`
+	Login       string       `json:"login"`
+	Name        *string      `json:"name"`
+	AvatarURL   *string      `json:"avatar_url"`
+	FirstSeenAt time.Time    `json:"first_seen_at"`
+	LastLoginAt *time.Time   `json:"last_login_at"`
+	Orgs        []PendingOrg `json:"orgs"`
+}
+
+// PendingOrg is an organization the person belongs to, with their teams there.
+type PendingOrg struct {
+	Org   string   `json:"org"`
+	Teams []string `json:"teams"`
+}
+
+// PendingAccess lists people who signed in and have no role binding, directly or through a team, newest
+// first. Site admins, disabled users, the break-glass user and dismissed requests are left out.
+func (s *Store) PendingAccess(ctx context.Context) ([]PendingUser, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT u.id, u.login, u.name, u.avatar_url, u.created_at, u.last_login_at,
+		       COALESCE((SELECT json_agg(json_build_object('org', o.org, 'teams', o.teams) ORDER BY o.org) FROM user_orgs o WHERE o.user_id = u.id), '[]'::json)
+		FROM users u
+		WHERE NOT u.is_admin AND u.disabled_at IS NULL AND u.access_dismissed_at IS NULL AND u.github_id > 0
+		  AND NOT EXISTS (SELECT 1 FROM role_bindings b
+		        WHERE (b.subject_type = 'user' AND b.subject = u.id::text)
+		           OR (b.subject_type = 'team' AND b.subject IN (SELECT unnest(teams) FROM user_orgs WHERE user_id = u.id)))
+		ORDER BY u.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PendingUser{}
+	for rows.Next() {
+		var p PendingUser
+		var orgs []byte
+		if err := rows.Scan(&p.ID, &p.Login, &p.Name, &p.AvatarURL, &p.FirstSeenAt, &p.LastLoginAt, &orgs); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(orgs, &p.Orgs)
+		if p.Orgs == nil {
+			p.Orgs = []PendingOrg{}
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// DismissAccessRequest hides a request until the person signs in again.
+func (s *Store) DismissAccessRequest(ctx context.Context, id int64) error {
+	tag, err := s.Pool.Exec(ctx, `UPDATE users SET access_dismissed_at = now() WHERE id = $1`, id)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
 }
