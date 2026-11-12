@@ -43,8 +43,7 @@ type Env struct {
 	GitHubEnvironment string    `yaml:"github_environment" json:"github_environment"`
 	AllowSeed         *bool     `yaml:"allow_seed" json:"allow_seed"`
 	// RequireApproval makes a migration or seed wait for a second person with action.approve before it is
-	// started. Unset means production environments require it and the others do not. Set it to false to start
-	// production runs at once (the person still needs the permission on that environment).
+	// started. Off unless set to true. A run still needs the permission on that exact environment.
 	RequireApproval *bool `yaml:"require_approval" json:"require_approval"`
 	Logs            Logs  `yaml:"logs" json:"logs"`
 	// Links are shortcuts for this environment only. The app's own links come first.
@@ -85,14 +84,8 @@ func (e Env) SeedAllowed() bool {
 	return e.Tier != "prod"
 }
 
-// NeedsApproval applies the default: production runs wait for a second person unless the environment says
-// otherwise, and other environments never do unless it says so.
-func (e Env) NeedsApproval() bool {
-	if e.RequireApproval != nil {
-		return *e.RequireApproval
-	}
-	return e.Tier == "prod"
-}
+// NeedsApproval reports whether runs wait for a second person. They do not unless the environment says so.
+func (e Env) NeedsApproval() bool { return e.RequireApproval != nil && *e.RequireApproval }
 
 // Parse decodes YAML strictly: unknown fields are errors, so typos are caught.
 func Parse(data []byte) (*Catalog, error) {

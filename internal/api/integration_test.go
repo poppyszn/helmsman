@@ -55,6 +55,7 @@ apps:
         health: { url: http://localhost:8080/health, via: agent }
         workflows: { deploy: deploy.yml, migrate: migrate.yml }
         github_environment: production
+        require_approval: true
   - id: ledger
     name: Ledger
     repo: acme-org/ledger

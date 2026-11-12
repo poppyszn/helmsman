@@ -33,7 +33,7 @@ apps:
           migrate: migrate.yml  # handles both migrate and seed
         github_environment: staging
         allow_seed: true        # default: true for nonprod, false for prod
-        require_approval: true  # default: true for prod, false for nonprod
+        require_approval: false # default false; true makes runs wait for a second person
 ```
 
 ## Quick links
@@ -53,15 +53,15 @@ apps:
 
 ## Approval
 
-By default a migration or seed on a `tier: prod` environment waits for a second person with `action.approve`, and runs on other environments start at once. Set `require_approval` on an environment to change that for it:
+Migrations and seeds start at once for anyone with the permission on that environment. To make runs on an environment wait for a second person with `action.approve` first (a requester can never approve their own run), set `require_approval: true` on it:
 
 ```yaml
       - env: prod
         tier: prod
-        require_approval: false   # start production runs at once
+        require_approval: true
 ```
 
-With `false`, a run still needs the permission on that exact environment (a wildcard `env: *` binding never reaches production), seeds stay refused when `allow_seed` is false, and every run is audited, including that no approval was required. The real gate against someone running a workflow outside Helmsman is the GitHub environment's protection rules (required reviewers on the environment the workflow deploys to). Helmsman shows such a run as waiting for GitHub approval.
+Approval is off unless you set it. Whatever you choose, a run still needs the permission on that exact environment (a wildcard `env: *` binding never reaches production), seeds stay refused when `allow_seed` is false, only one run can be active per environment, and every run is audited, including whether approval was required. The control that stops someone running a workflow outside Helmsman is the GitHub environment's protection rules (required reviewers on the environment the workflow deploys to); Helmsman shows such a run as waiting for GitHub approval.
 
 ## Tiers and access
 

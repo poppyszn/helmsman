@@ -560,34 +560,35 @@ func TestActionsAndLogOpensAreRateLimitedPerUser(t *testing.T) {
 	}
 }
 
-func TestAnEnvironmentCanSkipApproval(t *testing.T) {
+func TestApprovalIsOptInPerEnvironment(t *testing.T) {
 	r := newRunsEnv(t)
 	ctx := context.Background()
 	r.bind("user", itoa(r.userID("bob")), "developer", "billing-api", "prod")
 
-	// By default a production run waits for a second person.
+	// The shared test catalog opts billing-api prod in with require_approval: true, so it waits.
 	var list struct {
 		NeedsApproval bool `json:"needs_approval"`
 	}
 	if c := r.bob.json("GET", "/api/apps/billing-api/envs/prod/runs", nil, &list); c != 200 || !list.NeedsApproval {
-		t.Fatalf("default: %d %+v", c, list)
+		t.Fatalf("require_approval: true: %d %+v", c, list)
 	}
 
-	// With require_approval: false it starts at once, still needs the permission, and seeds stay refused.
-	skip := strings.Replace(catalogYAML, "        github_environment: production\n", "        github_environment: production\n        require_approval: false\n", 1)
-	r.writeCatalog(skip)
+	// Without the setting (the default) a production run starts at once, still needs the permission, and
+	// seeds stay refused.
+	noSetting := strings.Replace(catalogYAML, "        require_approval: true\n", "", 1)
+	r.writeCatalog(noSetting)
 	if err := r.cat.Reload(ctx, "test", true); err != nil {
 		t.Fatal(err)
 	}
 	if c := r.bob.json("GET", "/api/apps/billing-api/envs/prod/runs", nil, &list); c != 200 || list.NeedsApproval {
-		t.Fatalf("approval switched off: %d %+v", c, list)
+		t.Fatalf("no setting means no approval: %d %+v", c, list)
 	}
 	code, out := r.start(r.bob, "billing-api", "prod", "migrate")
 	if code != 202 && code != 200 && code != 201 {
 		t.Fatalf("start: %d %+v", code, out)
 	}
 	if out.Run.Status == "pending_approval" {
-		t.Fatalf("with approval off the run must not wait: %+v", out.Run)
+		t.Fatalf("without require_approval the run must not wait: %+v", out.Run)
 	}
 	run := r.settle(out.Run.ID, "succeeded")
 	if len(r.gh.Dispatches()) == 0 || run.Tier != "prod" {
