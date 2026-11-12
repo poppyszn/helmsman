@@ -38,6 +38,7 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 		if !repoRE.MatchString(a.Repo) {
 			add("%s: repo must be owner/repo", at)
 		}
+		checkLinks(&errs, at+" links", a.Links)
 		if len(a.Environments) == 0 {
 			add("%s: at least one environment is required", at)
 		}
@@ -66,6 +67,7 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 			}
 			checkURL(&errs, et+" url", e.URL, true)
 			checkURL(&errs, et+" health.url", e.Health.URL, true)
+			checkLinks(&errs, et+" links", e.Links)
 			if e.Health.Via != "server" && e.Health.Via != "agent" {
 				add("%s: health.via must be server or agent", et)
 			}
@@ -84,6 +86,19 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 		}
 	}
 	return errs
+}
+
+// checkLinks keeps the shortcuts tidy: a short name, an http(s) address, and no more than ten.
+func checkLinks(errs *[]error, field string, links []Link) {
+	if len(links) > 10 {
+		*errs = append(*errs, fmt.Errorf("%s: at most 10 links", field))
+	}
+	for i, l := range links {
+		if n := len([]rune(strings.TrimSpace(l.Name))); n < 1 || n > 40 {
+			*errs = append(*errs, fmt.Errorf("%s[%d]: name must be 1 to 40 characters", field, i))
+		}
+		checkURL(errs, fmt.Sprintf("%s[%d] url", field, i), l.URL, true)
+	}
 }
 
 var faroAppRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)

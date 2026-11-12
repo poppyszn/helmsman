@@ -4,6 +4,18 @@ import { authFile } from "../support";
 test.describe("alice (admin)", () => {
   test.use({ storageState: authFile("alice") });
 
+  test("the app page has quick links: the repository, the app's and the environment's", async ({ page }) => {
+    await page.goto("/apps/demo-app");
+    const links = page.getByLabel("Quick links");
+    await expect(links.getByRole("link", { name: "Repository" })).toHaveAttribute("href", "https://github.com/acme-org/demo-app");
+    await expect(links.getByRole("link", { name: "Runbook" })).toHaveAttribute("href", "https://wiki.example.com/demo-app");
+    await expect(links.getByRole("link", { name: "Dashboards" })).toBeVisible();
+    // The staging-only link is not shown on prod.
+    await page.getByRole("tab", { name: "prod" }).click();
+    await expect(links.getByRole("link", { name: "Runbook" })).toBeVisible();
+    await expect(links.getByRole("link", { name: "Dashboards" })).toHaveCount(0);
+  });
+
   test("the dashboard lists the app with both environments and their status", async ({ page }) => {
     await page.goto("/");
     const card = page.getByRole("link", { name: /Demo App/ });

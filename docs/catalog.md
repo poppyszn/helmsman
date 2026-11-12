@@ -35,6 +35,21 @@ apps:
         allow_seed: true        # default: true for nonprod, false for prod
 ```
 
+## Quick links
+
+`links` adds shortcuts to the app page, next to an automatic link to the repository. Put them on the app to show them on every environment, and on an environment for that one only (the app's come first). At most 10 each, a name of 1 to 40 characters and an http(s) address.
+
+```yaml
+apps:
+  - id: billing-api
+    links:
+      - { name: Runbook, url: https://wiki.example.com/billing }
+    environments:
+      - env: staging
+        links:
+          - { name: Grafana, url: https://grafana.example.com/d/billing-staging }
+```
+
 ## Tiers and access
 
 `tier: prod` environments are only reachable through bindings that name the env explicitly (for example `env: prod`). A binding with `env: *` covers non-production environments only. Site admins (the `is_admin` flag) can see everything.
