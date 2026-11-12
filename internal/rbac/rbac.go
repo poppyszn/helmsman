@@ -29,6 +29,10 @@ const (
 // Wildcard matches any app or env, subject to the prod rule below.
 const Wildcard = "*"
 
+// WildcardAllEnvs is the explicit "every environment, production included" env value. It is never the default:
+// the plain Wildcard still stops at non-production. Seeding production stays with site admins either way.
+const WildcardAllEnvs = "**"
+
 // Binding is a role binding already resolved to the role's permissions.
 type Binding struct {
 	Permissions []string
@@ -61,7 +65,7 @@ func has(perms []string, p string) bool {
 
 // Allowed reports whether the principal holds perm for the exact app and env.
 // Rules: any matching binding is enough (union); an env of "*" matches only
-// nonprod tiers, so prod must be granted by explicit env name; action.seed is
+// nonprod tiers, so prod must be granted by explicit env name or by the explicit "**" (all environments); action.seed is
 // never granted on prod to anyone but a site admin. Site admins
 // (users.is_admin) hold every permission everywhere, including prod.
 func (p Principal) Allowed(perm string, s Scope) bool {
@@ -80,7 +84,7 @@ func (p Principal) Allowed(perm string, s Scope) bool {
 		if b.AppID != Wildcard && b.AppID != s.AppID {
 			continue
 		}
-		if b.Env == s.Env || (b.Env == Wildcard && s.Tier == TierNonprod) {
+		if b.Env == s.Env || b.Env == WildcardAllEnvs || (b.Env == Wildcard && s.Tier == TierNonprod) {
 			return true
 		}
 	}
@@ -109,7 +113,7 @@ func (p Principal) AllowedGlobal(perm string) bool {
 		return true
 	}
 	for _, b := range p.Bindings {
-		if has(b.Permissions, perm) && b.AppID == Wildcard && b.Env == Wildcard {
+		if has(b.Permissions, perm) && b.AppID == Wildcard && (b.Env == Wildcard || b.Env == WildcardAllEnvs) {
 			return true
 		}
 	}

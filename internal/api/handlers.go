@@ -253,7 +253,7 @@ func (s *Server) handleCreateBinding(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusUnprocessableEntity, "unknown app")
 			return
 		}
-		if req.Env != rbac.Wildcard {
+		if req.Env != rbac.Wildcard && req.Env != rbac.WildcardAllEnvs {
 			found := false
 			for _, e := range app.Envs {
 				found = found || e.Env == req.Env
@@ -263,7 +263,7 @@ func (s *Server) handleCreateBinding(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else if req.Env != rbac.Wildcard && !slugRE.MatchString(req.Env) {
+	} else if req.Env != rbac.Wildcard && req.Env != rbac.WildcardAllEnvs && !slugRE.MatchString(req.Env) {
 		writeErr(w, http.StatusUnprocessableEntity, "invalid env")
 		return
 	}

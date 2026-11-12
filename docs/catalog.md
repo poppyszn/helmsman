@@ -77,7 +77,7 @@ Approval is off unless you set it. Whatever you choose, a run still needs the pe
 
 ## Tiers and access
 
-`tier: prod` environments are only reachable through bindings that name the env explicitly (for example `env: prod`). A binding with `env: *` covers non-production environments only. Site admins (the `is_admin` flag) can see everything.
+`tier: prod` environments are only reachable through bindings that name the env explicitly (for example `env: prod`). A binding with `env: *` covers non-production environments only; `env: **` is the explicit "all environments, production included" value. Seeding production is held by site admins whichever you choose. Site admins (the `is_admin` flag) can see everything.
 
 `allow_seed: false` refuses seeds for that environment even for admins.
 
