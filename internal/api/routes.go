@@ -87,6 +87,8 @@ func (s *Server) Routes() []Route {
 		{get, "/api/admin/users", "admin.access", ScopeGlobal, s.handleListUsers, false},
 		{get, "/api/admin/roles", "admin.access", ScopeGlobal, s.handleListRoles, false},
 		{get, "/api/admin/bindings", "admin.access", ScopeGlobal, s.handleListBindings, false},
+		{get, "/api/admin/access-requests", "admin.access", ScopeGlobal, s.handleAccessRequests, false},
+		{post, "/api/admin/access-requests/{id}/dismiss", "admin.access", ScopeGlobal, s.handleDismissAccessRequest, false},
 		{post, "/api/admin/bindings", "admin.access", ScopeGlobal, s.handleCreateBinding, false},
 		{del, "/api/admin/bindings/{id}", "admin.access", ScopeGlobal, s.handleDeleteBinding, false},
 		{get, "/api/admin/catalog", "admin.access", ScopeGlobal, s.handleCatalogStatus, false},

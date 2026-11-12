@@ -31,6 +31,8 @@ export type Me = {
   user: { id: number; login: string; name: string | null; avatar_url: string | null; is_admin: boolean };
   csrf_token: string;
   can: { admin: boolean; audit: boolean; agents: boolean; approve: boolean };
+  /** False for someone who signed in but has no role yet. */
+  has_access: boolean;
   display_tz: string;
 };
 
@@ -281,3 +283,13 @@ export type SmtpStatus = {
 };
 export type NotifyEventType = { id: string; label: string; default: boolean };
 export type NotificationsResp = { smtp: SmtpStatus; channels: NotifyChannel[]; deliveries: NotifyDelivery[]; events: NotifyEventType[] };
+
+export type AccessRequest = {
+  id: number;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+  first_seen_at: string;
+  last_login_at: string | null;
+  orgs: { org: string; teams: string[] }[];
+};
