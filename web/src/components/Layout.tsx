@@ -22,6 +22,27 @@ import {
 import { api, useMe } from "@/lib/api";
 import { CommandPalette } from "@/components/CommandPalette";
 
+type Crumb = { label: string; to?: string };
+
+/** The path as clickable steps: every step that has a page of its own links to it, the last one is the page itself. */
+function breadcrumbs(pathname: string): Crumb[] {
+  const parts = pathname.split("/").filter(Boolean);
+  const home: Crumb = { label: "helmsman", to: "/" };
+  if (parts.length === 0) return [home, { label: "apps" }];
+  if (parts[0] === "apps" && parts.length >= 2) {
+    const app = `/apps/${parts[1]}`;
+    const rest = parts.slice(2);
+    return [
+      home,
+      { label: "apps", to: "/" },
+      rest.length === 0 ? { label: parts[1] } : { label: parts[1], to: app },
+      ...rest.map((p, i) => (i < rest.length - 1 ? { label: p, to: `${app}/${rest.slice(0, i + 1).join("/")}` } : { label: p })),
+    ];
+  }
+  if (parts[0] === "admin" && parts.length >= 2) return [home, { label: "admin" }, { label: parts.slice(1).join(" / ") }];
+  return [home, ...parts.map((p, i) => ({ label: p, ...(i < parts.length - 1 ? { to: "/" + parts.slice(0, i + 1).join("/") } : {}) }))];
+}
+
 export default function Layout() {
   const { data: me } = useMe();
   const qc = useQueryClient();
@@ -53,8 +74,7 @@ export default function Layout() {
         : "text-zinc-400 hover:text-zinc-100 hover:bg-[#101014]"
     }`;
 
-  const pathParts = location.pathname.split("/").filter(Boolean);
-  const breadcrumb = pathParts.length === 0 ? "apps" : pathParts.join(" / ");
+  const crumbs = breadcrumbs(location.pathname);
 
   return (
     <div className="flex min-h-screen bg-black text-zinc-100 font-sans antialiased">
@@ -177,9 +197,28 @@ export default function Layout() {
         {/* Top Header Bar */}
         <header className="flex h-11 items-center justify-between text-xs mb-6">
           <div className="flex items-center gap-2 font-mono text-sm text-zinc-500">
-            <span>helmsman</span>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-200 font-medium">{breadcrumb}</span>
+            <nav aria-label="Breadcrumb">
+              <ol className="flex items-center gap-2">
+                {crumbs.map((c, i) => (
+                  <li key={`${c.label}-${i}`} className="flex items-center gap-2">
+                    {i > 0 && (
+                      <span className="text-zinc-700" aria-hidden>
+                        /
+                      </span>
+                    )}
+                    {c.to ? (
+                      <Link to={c.to} className="text-zinc-400 underline-offset-4 transition-colors hover:text-white hover:underline">
+                        {c.label}
+                      </Link>
+                    ) : (
+                      <span className={i === crumbs.length - 1 ? "text-zinc-200 font-medium" : "text-zinc-500"} aria-current={i === crumbs.length - 1 ? "page" : undefined}>
+                        {c.label}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
 
           <button

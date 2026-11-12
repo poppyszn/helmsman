@@ -4,17 +4,25 @@ Helmsman can tell people when something needs them, by **email** or **webhook**,
 
 ## What it announces
 
-| Event | When |
-|---|---|
-| A migration or seed failed | A run started from Helmsman failed, or could not be started |
-| A production run is waiting for approval | A second person with `action.approve` is needed |
-| A migration or seed succeeded | Off by default |
-| A deployment failed or succeeded | A finished run of an app's deploy workflow (the one named in the catalog) |
-| An environment went down, or recovered | Two health checks in a row failed or its container stopped, and the same again for coming back |
-| A container is crash looping | Repeated exits in a short span |
-| An agent went offline, or came back | The agent's connection was silent for a minute |
+| Group | Event | When |
+|---|---|---|
+| Uptime | An environment went down | Two health checks in a row failed, or its container is not running |
+| Uptime | An environment became slow or unhealthy | Its health check is slow, or Docker reports the container unhealthy (off by default) |
+| Uptime | An environment recovered | It is healthy again after being down or degraded (off by default) |
+| Uptime | A container is crash looping | Repeated exits in a short span |
+| Uptime | An agent (a host) went offline, or came back | The agent's connection was silent for a minute |
+| Deployments | A deployment started, failed or succeeded | A run of the app's deploy workflow (the one named in the catalog) |
+| Migrations and seeds | A run is waiting for approval | Only for environments with `require_approval: true` |
+| Migrations and seeds | A migration or seed started, failed or succeeded | A run started from Helmsman |
+| Other GitHub workflows | Another workflow failed or succeeded | Any workflow of the app's repository that is not its deploy or migrate workflow: tests, builds and so on |
 
-Each channel picks the events it wants and whether it covers all environments, only production, or only non-production. Events that belong to an agent or a whole repository, with no single environment, go to channels set to all environments.
+**Choose exactly what a channel sends.** Each channel has three limits, all optional:
+
+- **Events:** tick only the ones you want, for example uptime for the on-call channel and deployments for a team channel.
+- **Which apps:** all apps, or only the apps you pick.
+- **Which environments:** all, or only the environment names you pick (for example `prod`). A separate setting limits a channel to production or non-production environments.
+
+Events about a whole host, such as an agent going offline, reach the channels of every app on that host. They cannot be limited to an environment, so a channel limited to environment names does not receive them. A workflow of a repository that several apps share is delivered to a channel that includes any of those apps.
 
 A change is announced only after Helmsman has seen it on two looks 30 seconds apart, so a blip tells nobody. A flapping environment is held back: the same event for the same environment is not sent again to a channel within ten minutes. When Helmsman starts, or the first time it sees an environment or a deploy workflow, it only records the state, so restarting or deploying Helmsman itself never causes a burst of messages.
 

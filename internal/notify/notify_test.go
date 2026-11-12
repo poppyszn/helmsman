@@ -13,22 +13,31 @@ import (
 )
 
 func TestMatches(t *testing.T) {
-	ev := Event{Type: EnvDown, Tier: "prod"}
+	ev := Event{Type: EnvDown, App: "billing", Env: "prod", Tier: "prod"}
 	for _, c := range []struct {
+		name   string
 		events []string
-		tier   string
+		sc     Scope
 		ev     Event
 		want   bool
 	}{
-		{[]string{EnvDown}, "all", ev, true},
-		{[]string{EnvDown}, "prod", ev, true},
-		{[]string{EnvDown}, "nonprod", ev, false},
-		{[]string{RunFailed}, "all", ev, false},
-		{[]string{EnvDown}, "prod", Event{Type: EnvDown}, false}, // no tier: only "all" channels
-		{[]string{EnvDown}, "all", Event{Type: EnvDown}, true},
+		{"all", []string{EnvDown}, Scope{Tier: "all"}, ev, true},
+		{"prod only", []string{EnvDown}, Scope{Tier: "prod"}, ev, true},
+		{"nonprod only", []string{EnvDown}, Scope{Tier: "nonprod"}, ev, false},
+		{"other event", []string{RunFailed}, Scope{Tier: "all"}, ev, false},
+		{"no tier on the event: only all", []string{EnvDown}, Scope{Tier: "prod"}, Event{Type: EnvDown}, false},
+		{"no tier on the event, all", []string{EnvDown}, Scope{Tier: "all"}, Event{Type: EnvDown}, true},
+		{"chosen app matches", []string{EnvDown}, Scope{Tier: "all", Apps: []string{"billing", "ledger"}}, ev, true},
+		{"chosen app does not match", []string{EnvDown}, Scope{Tier: "all", Apps: []string{"ledger"}}, ev, false},
+		{"app from the apps list of a host event", []string{AgentOffline}, Scope{Tier: "all", Apps: []string{"billing"}}, Event{Type: AgentOffline, Apps: []string{"ledger", "billing"}}, true},
+		{"a host event with no apps does not pass an app filter", []string{AgentOffline}, Scope{Tier: "all", Apps: []string{"billing"}}, Event{Type: AgentOffline}, false},
+		{"chosen environment matches", []string{EnvDown}, Scope{Tier: "all", Envs: []string{"prod"}}, ev, true},
+		{"chosen environment does not match", []string{EnvDown}, Scope{Tier: "all", Envs: []string{"staging"}}, ev, false},
+		{"an event with no environment does not pass an environment filter", []string{AgentOffline}, Scope{Tier: "all", Envs: []string{"prod"}}, Event{Type: AgentOffline, Apps: []string{"billing"}}, false},
+		{"app and environment together", []string{EnvDown}, Scope{Tier: "all", Apps: []string{"billing"}, Envs: []string{"prod"}}, ev, true},
 	} {
-		if got := Matches(c.events, c.tier, c.ev); got != c.want {
-			t.Errorf("%v %s %+v: got %v", c.events, c.tier, c.ev, got)
+		if got := Matches(c.events, c.sc, c.ev); got != c.want {
+			t.Errorf("%s: got %v want %v", c.name, got, c.want)
 		}
 	}
 }

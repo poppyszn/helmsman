@@ -14,11 +14,13 @@ import GitHub from "@/pages/admin/GitHub";
 import Integrations from "@/pages/admin/Integrations";
 import Notifications from "@/pages/admin/Notifications";
 import Doctor from "@/pages/admin/Doctor";
+import NoAccess from "@/pages/NoAccess";
 
 function Protected() {
   const { data, isPending, error } = useMe();
   if (isPending) return <p className="p-6 text-sm text-muted">Loading</p>;
   if (error || !data) return <Navigate to="/login" replace />;
+  if (!data.has_access) return <NoAccess me={data} />;
   return <Layout />;
 }
 
@@ -29,6 +31,8 @@ export default function App() {
       <Route element={<Protected />}>
         <Route path="/" element={<Apps />} />
         <Route path="/apps/:appId" element={<AppDetail />} />
+        <Route path="/apps/:appId/:env" element={<AppDetail />} />
+        <Route path="/apps/:appId/:env/:tab" element={<AppDetail />} />
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/bindings" element={<Bindings />} />
         <Route path="/admin/catalog" element={<Catalog />} />

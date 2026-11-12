@@ -23,6 +23,7 @@
 | bob | acme-org/backend | developer on every nonprod env |
 | carol | acme-org | viewer on demo-app staging |
 | erin | acme-org/leads | approver (nonprod) |
+| grace | acme-org | none: waits for access |
 | dave | other-org | rejected: not in an allowed org |
 | frank | acme-org (restricted) | rejected: org blocks OAuth apps |
 

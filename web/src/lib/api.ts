@@ -31,6 +31,8 @@ export type Me = {
   user: { id: number; login: string; name: string | null; avatar_url: string | null; is_admin: boolean };
   csrf_token: string;
   can: { admin: boolean; audit: boolean; agents: boolean; approve: boolean };
+  /** False for someone who signed in but has no role yet. */
+  has_access: boolean;
   display_tz: string;
 };
 
@@ -50,7 +52,8 @@ export function useMe() {
 export type Status = "healthy" | "degraded" | "down" | "unknown";
 export type EnvLink = { name: string; url: string };
 export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean; status: Status; links: EnvLink[] };
-export type App = { id: string; name: string; repo: string; environments: Env[] };
+export type App = { id: string; name: string; repo: string; org: string; tags: string[]; environments: Env[] };
+export type CustomApp = { id: number; name: string; url: string; description: string; tags: string[]; updated_at: string };
 
 export function formatTime(iso: string | null | undefined, tz: string): string {
   if (!iso) return "never";
@@ -254,6 +257,8 @@ export type NotifyChannel = {
   has_secret: boolean;
   events: string[];
   tier: "all" | "prod" | "nonprod";
+  apps: string[];
+  envs: string[];
   enabled: boolean;
   created_by?: string;
 };
@@ -279,5 +284,15 @@ export type SmtpStatus = {
   updated_by?: string;
   updated_at?: string;
 };
-export type NotifyEventType = { id: string; label: string; default: boolean };
+export type NotifyEventType = { id: string; group: string; label: string; default: boolean };
 export type NotificationsResp = { smtp: SmtpStatus; channels: NotifyChannel[]; deliveries: NotifyDelivery[]; events: NotifyEventType[] };
+
+export type AccessRequest = {
+  id: number;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+  first_seen_at: string;
+  last_login_at: string | null;
+  orgs: { org: string; teams: string[] }[];
+};

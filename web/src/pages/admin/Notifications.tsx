@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Loader2, Mail, Webhook } from "lucide-react";
-import { api, ApiError, formatTime, useMe, type NotificationsResp, type NotifyChannel, type NotifyEventType, type SmtpStatus } from "@/lib/api";
+import { api, ApiError, formatTime, useMe, type App, type NotificationsResp, type NotifyChannel, type NotifyEventType, type SmtpStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CopyBlock } from "@/components/CopyBlock";
 
 const KEY = ["notifications"];
-const scopeLabel = { all: "all environments", prod: "production only", nonprod: "non-production only" } as const;
+const scopeLabel = { all: "", prod: "production only", nonprod: "non-production only" } as const;
 
 const note = (e: unknown) => (e instanceof ApiError ? e.message : "that did not work");
 
@@ -149,18 +149,25 @@ function SmtpCard({ smtp, hasEmailChannels }: { smtp: SmtpStatus; hasEmailChanne
   );
 }
 
-type Draft = { id?: number; name: string; kind: "email" | "webhook"; to: string; url: string; secret: string; events: string[]; tier: NotifyChannel["tier"]; enabled: boolean };
+type Draft = { id?: number; name: string; kind: "email" | "webhook"; to: string; url: string; secret: string; events: string[]; tier: NotifyChannel["tier"]; apps: string[]; envs: string[]; enabled: boolean };
 
-const blank = (types: NotifyEventType[]): Draft => ({ name: "", kind: "email", to: "", url: "", secret: "", events: types.filter((t) => t.default).map((t) => t.id), tier: "all", enabled: true });
+const blank = (types: NotifyEventType[]): Draft => ({ name: "", kind: "email", to: "", url: "", secret: "", events: types.filter((t) => t.default).map((t) => t.id), tier: "all", apps: [], envs: [], enabled: true });
 
 function ChannelForm({ types, draft, onDone }: { types: NotifyEventType[]; draft: Draft; onDone: (secret?: string) => void }) {
   const qc = useQueryClient();
   const [d, setD] = useState(draft);
   const [err, setErr] = useState<string | null>(null);
   const editing = d.id !== undefined;
+  // "Only these" stays chosen while the list is empty, so unticking the last box does not collapse the picker.
+  const [appsMode, setAppsMode] = useState<"all" | "some">(draft.apps.length ? "some" : "all");
+  const [envsMode, setEnvsMode] = useState<"all" | "some">(draft.envs.length ? "some" : "all");
+  const catalog = useQuery<App[]>({ queryKey: ["apps"], queryFn: () => api("/api/apps") });
+  const apps = catalog.data ?? [];
+  const envNames = [...new Set(apps.flatMap((a) => a.environments.map((e) => e.env)))].sort();
+  const pick = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: d.name, kind: d.kind, to: d.to.split(/[\s,;]+/).filter(Boolean), url: d.url, secret: d.secret, events: d.events, tier: d.tier, enabled: d.enabled };
+      const body = { name: d.name, kind: d.kind, to: d.to.split(/[\s,;]+/).filter(Boolean), url: d.url, secret: d.secret, events: d.events, tier: d.tier, apps: appsMode === "some" ? d.apps : [], envs: envsMode === "some" ? d.envs : [], enabled: d.enabled };
       return editing
         ? api<{ channel: NotifyChannel }>(`/api/admin/notifications/channels/${d.id}`, { method: "PUT", json: body })
         : api<{ channel: NotifyChannel; secret?: string }>("/api/admin/notifications/channels", { method: "POST", json: body });
@@ -180,6 +187,8 @@ function ChannelForm({ types, draft, onDone }: { types: NotifyEventType[]; draft
       onSubmit={(e) => {
         e.preventDefault();
         setErr(null);
+        if (appsMode === "some" && d.apps.length === 0) return setErr("Choose at least one app, or switch to all apps.");
+        if (envsMode === "some" && d.envs.length === 0) return setErr("Choose at least one environment name, or switch to all environments.");
         save.mutate();
       }}
     >
@@ -208,8 +217,8 @@ function ChannelForm({ types, draft, onDone }: { types: NotifyEventType[]; draft
           </label>
         </>
       )}
-      <Select label="Which environments" value={d.tier} onChange={(v) => setD({ ...d, tier: v as Draft["tier"] })}>
-        <option value="all">All environments</option>
+      <Select label="Kind of environment" value={d.tier} onChange={(v) => setD({ ...d, tier: v as Draft["tier"] })}>
+        <option value="all">Production and non-production</option>
         <option value="prod">Production only</option>
         <option value="nonprod">Non-production only</option>
       </Select>
@@ -217,14 +226,74 @@ function ChannelForm({ types, draft, onDone }: { types: NotifyEventType[]; draft
         <input type="checkbox" className="size-4 accent-sky-400" checked={d.enabled} onChange={(e) => setD({ ...d, enabled: e.target.checked })} />
         Turned on
       </label>
-      <fieldset className="sm:col-span-2">
-        <legend className="mb-2 text-xs font-mono text-zinc-400">Tell this channel when</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {types.map((t) => (
-            <label key={t.id} className="flex items-center gap-2 text-sm text-zinc-300">
-              <input type="checkbox" className="size-4 accent-sky-400" checked={d.events.includes(t.id)} onChange={() => toggle(t.id)} />
-              {t.label}
-            </label>
+
+      <fieldset className="sm:col-span-2" aria-label="Which apps">
+        <legend className="mb-2 text-xs font-mono text-zinc-400">Which apps</legend>
+        <div className="mb-2 flex gap-5 text-sm text-zinc-300">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="apps-scope" className="accent-sky-400" checked={appsMode === "all"} onChange={() => setAppsMode("all")} />
+            All apps
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="apps-scope" className="accent-sky-400" checked={appsMode === "some"} onChange={() => setAppsMode("some")} />
+            Only these
+          </label>
+        </div>
+        {appsMode === "some" && (
+          <div className="grid max-h-44 gap-1.5 overflow-auto rounded-lg bg-black p-3 sm:grid-cols-2">
+            {apps.map((a) => (
+              <label key={a.id} className="flex items-center gap-2 text-sm text-zinc-300">
+                <input type="checkbox" className="size-4 accent-sky-400" checked={d.apps.includes(a.id)} onChange={() => setD({ ...d, apps: pick(d.apps, a.id) })} />
+                <span className="truncate">{a.name}</span>
+                <span className="truncate font-mono text-xs text-zinc-500">{a.id}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="sm:col-span-2" aria-label="Which environments">
+        <legend className="mb-2 text-xs font-mono text-zinc-400">Which environments</legend>
+        <div className="mb-2 flex gap-5 text-sm text-zinc-300">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="envs-scope" className="accent-sky-400" checked={envsMode === "all"} onChange={() => setEnvsMode("all")} />
+            All environments
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="envs-scope" className="accent-sky-400" checked={envsMode === "some"} onChange={() => setEnvsMode("some")} />
+            Only these names
+          </label>
+        </div>
+        {envsMode === "some" && (
+          <div className="flex flex-wrap gap-x-5 gap-y-1.5 rounded-lg bg-black p-3">
+            {envNames.map((n) => (
+              <label key={n} className="flex items-center gap-2 text-sm text-zinc-300">
+                <input type="checkbox" className="size-4 accent-sky-400" checked={d.envs.includes(n)} onChange={() => setD({ ...d, envs: pick(d.envs, n) })} />
+                <span className="font-mono">{n}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <p className="mt-1.5 text-xs text-zinc-500">Events about a whole host (an agent going offline) reach the channels of the apps on that host, but cannot be limited to an environment.</p>
+      </fieldset>
+
+      <fieldset className="sm:col-span-2" aria-label="Events">
+        <legend className="mb-2 text-xs font-mono text-zinc-400">Send a message when</legend>
+        <div className="space-y-3">
+          {[...new Set(types.map((t) => t.group))].map((g) => (
+            <div key={g}>
+              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">{g}</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {types
+                  .filter((t) => t.group === g)
+                  .map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 text-sm text-zinc-300">
+                      <input type="checkbox" className="size-4 accent-sky-400" checked={d.events.includes(t.id)} onChange={() => toggle(t.id)} />
+                      {t.label}
+                    </label>
+                  ))}
+              </div>
+            </div>
           ))}
         </div>
       </fieldset>
@@ -269,7 +338,7 @@ function ChannelRow({ c, types, onEdit }: { c: NotifyChannel; types: NotifyEvent
         {c.kind === "email" ? <Mail className="size-4 text-zinc-400" strokeWidth={1.5} /> : <Webhook className="size-4 text-zinc-400" strokeWidth={1.5} />}
         <span className="text-sm font-semibold text-white">{c.name}</span>
         {!c.enabled && <Badge tone="default">off</Badge>}
-        <span className="text-xs font-mono text-zinc-500">{scopeLabel[c.tier]}</span>
+        <span className="text-xs font-mono text-zinc-500">{[c.apps.length ? `apps: ${c.apps.join(", ")}` : "all apps", c.envs.length ? `environments: ${c.envs.join(", ")}` : "all environments", c.tier === "all" ? "" : scopeLabel[c.tier]].filter(Boolean).join(" · ")}</span>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="outline" onClick={() => test.mutate()} disabled={test.isPending}>
             {test.isPending && <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />}
@@ -375,7 +444,7 @@ export default function Notifications() {
                 types={events}
                 onEdit={() => {
                   setSecret(null);
-                  setForm({ id: c.id, name: c.name, kind: c.kind, to: (c.to ?? []).join(", "), url: c.url ?? "", secret: "", events: c.events, tier: c.tier, enabled: c.enabled });
+                  setForm({ id: c.id, name: c.name, kind: c.kind, to: (c.to ?? []).join(", "), url: c.url ?? "", secret: "", events: c.events, tier: c.tier, apps: c.apps ?? [], envs: c.envs ?? [], enabled: c.enabled });
                 }}
               />
             ))}

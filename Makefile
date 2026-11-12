@@ -47,7 +47,7 @@ test: ## Run Go tests (with a throwaway Postgres) and web lint/typecheck, all in
 	$(GO_NET) -e TEST_DATABASE_URL='postgres://helmsman:test@postgres-test:5432/helmsman?sslmode=disable' \
 		golang:1.26-alpine sh -c 'go vet ./... && go test -p 1 -count=1 ./...'; \
 		rc=$$?; $(COMPOSE_DEV) --profile test rm -sf postgres-test >/dev/null 2>&1; test $$rc -eq 0
-	$(NODE_RUN) sh -c 'npm ci && npm run lint && npm run typecheck'
+	$(NODE_RUN) sh -c 'npm ci && npm run lint && npm run typecheck && npm test'
 
 e2e: ## Playwright end to end tests against the dev stack (starts it if needed), all in Docker
 	@docker compose -f deploy/compose.dev.yml ps --status running --services | grep -qx server || $(MAKE) --no-print-directory up

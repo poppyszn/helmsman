@@ -324,6 +324,10 @@ Otherwise the repository needs a `workflow_dispatch` workflow that declares exac
 
 ### Access
 
+**External tools.** Under the apps, the **Tools** section holds links to the other tools your team uses (Grafana, Sentry, the wiki). Admins add, edit and remove them; everyone who can see apps sees them, and their tags take part in the tag filter. They are links only: Helmsman never calls them.
+
+**Granting access to newcomers.** Anyone in an allowed organization can sign in, but with no role they see only "You don't have access yet" and a note that an admin will grant it (the page checks again by itself, and has Switch account and Sign out). They appear under **Access > Awaiting access**, with their name, GitHub organizations and teams. Choose **Grant access**, pick a role, the apps and the environments, and they are in: the role's permissions are shown before you confirm. **Dismiss** hides a request until that person signs in again. A request stays listed while the person is signed out or has switched account.
+
 On **Access**, bind people and teams to roles. Team subjects are `org/team-slug`. A binding with `env: *` never matches a production environment, so production access is always an explicit binding. Runs start at once by default; set `require_approval: true` on an environment in the catalog to make them wait for a second person with `action.approve` (see `catalog.md`).
 
 ## Day to day

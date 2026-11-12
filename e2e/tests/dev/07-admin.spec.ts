@@ -87,6 +87,8 @@ test("the audit log records sign-ins with who, what and when", async ({ page }) 
 
 test("the command palette opens from the keyboard and jumps to an app", async ({ page }) => {
   await page.goto("/");
+  // Wait until the page is interactive: a shortcut pressed before the app has attached its listener is lost.
+  await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+k");
   const palette = page.getByRole("dialog");
   await expect(palette).toBeVisible();

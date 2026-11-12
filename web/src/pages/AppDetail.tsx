@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   RotateCw,
@@ -21,6 +21,7 @@ import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
 
 type Tab = "logs" | "timeline" | "events" | "runs" | "deployments";
+const TABS: Tab[] = ["logs", "timeline", "events", "runs", "deployments"];
 
 const reasonText: Record<string, string> = {
   agent_offline: "The host agent on this server is offline.",
@@ -29,8 +30,9 @@ const reasonText: Record<string, string> = {
 };
 
 export default function AppDetail() {
-  const { appId } = useParams();
-  const [selected, setSelected] = useState<string | null>(null);
+  // The address says where you are: /apps/<app>/<environment>/<tab>, so a link or a reload lands on the same view.
+  const { appId, env: envParam, tab: tabParam } = useParams();
+  const navigate = useNavigate();
 
   const { data, isPending, error } = useQuery<App>({
     queryKey: ["app", appId],
@@ -60,7 +62,12 @@ export default function AppDetail() {
     );
   }
 
-  const env = data.environments.find((e) => e.env === selected) ?? data.environments[0];
+  const env = data.environments.find((e) => e.env === envParam) ?? data.environments[0];
+  const tab = TABS.find((t) => t === tabParam) ?? "logs";
+  // An address with an unknown environment or tab is corrected to the nearest real one.
+  if ((envParam && env.env !== envParam) || (tabParam && tab !== tabParam)) {
+    return <Navigate replace to={envParam && env.env === envParam && tabParam ? `/apps/${data.id}/${env.env}` : `/apps/${data.id}`} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -114,7 +121,7 @@ export default function AppDetail() {
               key={e.env}
               role="tab"
               aria-selected={isActive}
-              onClick={() => setSelected(e.env)}
+              onClick={() => navigate(`/apps/${data.id}/${e.env}`)}
               className={`flex items-center gap-2 transition-colors cursor-pointer select-none ${
                 isActive
                   ? "text-white font-semibold underline decoration-2 underline-offset-8"
@@ -128,16 +135,15 @@ export default function AppDetail() {
         })}
       </div>
 
-      <EnvInspector app={data.id} env={env} />
+      <EnvInspector app={data.id} env={env} tab={tab} onTab={(t) => navigate(`/apps/${data.id}/${env.env}/${t}`)} />
     </div>
   );
 }
 
-function EnvInspector({ app, env }: { app: string; env: Env }) {
+function EnvInspector({ app, env, tab: activeTab, onTab: setActiveTab }: { app: string; env: Env; tab: Tab; onTab: (t: Tab) => void }) {
   const { data: me } = useMe();
   const tz = me?.display_tz ?? "UTC";
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>("logs");
   const [logMode, setLogMode] = useState<"live" | "history">("live");
   const [copiedSha, setCopiedSha] = useState(false);
 

@@ -144,6 +144,7 @@ Login at http://localhost:5173 using the fake GitHub OAuth picker:
 - `bob` (id: 1002, org: `acme-org/backend`): Developer across all non-production environments (`env: *`).
 - `carol` (id: 1003, org: `acme-org`): Viewer on `demo-app` in `staging` only.
 - `erin` (id: 1005, org: `acme-org/leads`): Approver across all non-production environments.
+- `grace` (id: 1007, org: `acme-org`): No role. Signs in and sees "You don't have access yet"; she appears under Awaiting access on the Access page.
 - `dave` (rejected): User from `other-org` (not in `IDP_ALLOWED_ORGS`).
 - `frank` (rejected): Belongs to an org that blocks third-party OAuth apps.
 

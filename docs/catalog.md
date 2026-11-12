@@ -51,6 +51,18 @@ apps:
           - { name: Grafana, url: https://grafana.example.com/d/billing-staging }
 ```
 
+## Tags and organizations
+
+`tags` on an app (and on an environment, which adds to the app's) label it for the filter on the Apps page: lowercase letters, digits, dots, dashes and underscores, up to 30 characters and 20 tags. Environment names work as tags too, so `prod` and `develop` filter without being declared.
+
+```yaml
+apps:
+  - id: billing-api
+    tags: [api, payments]
+```
+
+The **organization** of an app is the owner of its `repo`. When the apps you can see belong to more than one organization, the Apps page shows an **Organization** switch (and remembers your choice in this browser). To bring in another GitHub organization: add it to `IDP_ALLOWED_ORGS` so its members can sign in, install the GitHub App on it (or create one there) for migrations and deployments, and add its apps to the catalog with their `repo: <org>/<repo>`. Role bindings are by app and environment, so access in one organization never carries over to another.
+
 ## Approval
 
 Migrations and seeds start at once for anyone with the permission on that environment. To make runs on an environment wait for a second person with `action.approve` first (a requester can never approve their own run), set `require_approval: true` on it:

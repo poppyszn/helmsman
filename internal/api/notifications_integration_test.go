@@ -302,3 +302,86 @@ func TestWatcherAnnouncesAChangeOnlyAfterTwoLooks(t *testing.T) {
 		t.Fatalf("a failed deployment is announced once: %v", got)
 	}
 }
+
+func TestChannelsCanBeLimitedToAppsAndEnvironmentsAndSeeNewEvents(t *testing.T) {
+	r := newRunsEnv(t)
+	ctx := context.Background()
+	mk := func(name string, extra map[string]any) {
+		body := map[string]any{"name": name, "kind": "webhook", "url": "https://hooks.example.com/" + name, "enabled": true,
+			"events": []string{"env.down", "env.degraded", "workflow.failed", "deploy.started", "agent.offline", "run.started"}}
+		for k, v := range extra {
+			body[k] = v
+		}
+		if code := r.alice.json("POST", "/api/admin/notifications/channels", body, nil); code != 201 {
+			t.Fatalf("create %s: %d", name, code)
+		}
+	}
+	mk("billing", map[string]any{"apps": []string{"billing-api"}})
+	mk("ledger", map[string]any{"apps": []string{"ledger"}})
+	mk("prodonly", map[string]any{"envs": []string{"prod"}})
+	if code := r.alice.json("POST", "/api/admin/notifications/channels", map[string]any{"name": "bad", "kind": "webhook", "url": "https://hooks.example.com/b",
+		"events": []string{"env.down"}, "apps": []string{"Not A Slug"}}, nil); code != 422 {
+		t.Fatalf("an app name that is not a slug is refused: %d", code)
+	}
+	urls := func() map[string]int {
+		r.notify.SendDue(ctx)
+		n := map[string]int{}
+		for _, c := range r.hooks.all() {
+			n[c.URL[strings.LastIndex(c.URL, "/")+1:]]++
+		}
+		return n
+	}
+
+	// A host event reaches the channels of the apps on that host (agent-1 serves billing-api and ledger).
+	srv := r.srv
+	probe := func(env, status string) {
+		if _, err := r.st.Pool.Exec(ctx, `INSERT INTO health_checks (app_env_id, status, http_code, latency_ms)
+			SELECT id, $1, 0, 5 FROM app_envs WHERE app_id = 'billing-api' AND env = $2`, status, env); err != nil {
+			t.Fatal(err)
+		}
+	}
+	probe("staging", "ok")
+	srv.WatchOnce(ctx, true) // first look: remember everything
+	probe("staging", "slow")
+	srv.WatchOnce(ctx, false)
+	srv.WatchOnce(ctx, false)
+	got := urls()
+	if got["billing"] != 1 || got["ledger"] != 0 || got["prodonly"] != 0 {
+		t.Fatalf("a degraded environment of billing-api reaches only the billing channel: %v", got)
+	}
+	var last notify.Payload
+	for _, c := range r.hooks.all() {
+		last = c.P
+	}
+	if last.Title != "billing-api / staging is slow or unhealthy" {
+		t.Fatalf("degraded title: %+v", last)
+	}
+
+	// Other workflows of the repository: a failing CI run reaches the app's channel, not another app's.
+	now := time.Now()
+	r.gh.AddRun("acme-org/billing-api", "ci.yml", "1111111111111111111111111111111111111111", "bob", "success", now.Add(-time.Hour))
+	srv.WatchOnce(ctx, true)
+	r.gh.AddRun("acme-org/billing-api", "ci.yml", "2222222222222222222222222222222222222222", "bob", "failure", now.Add(-time.Minute))
+	r.gh.AddRun("acme-org/billing-api", "deploy.yml", "3333333333333333333333333333333333333333", "bob", "failure", now.Add(-time.Minute))
+	srv.WatchOnce(ctx, true)
+	got = urls()
+	if got["billing"] != 2 || got["ledger"] != 0 {
+		t.Fatalf("workflow.failed for billing-api's CI run (the deploy workflow is a deploy event instead): %v", got)
+	}
+	titles := ""
+	for _, c := range r.hooks.all() {
+		titles += c.P.Title + "|"
+	}
+	if !strings.Contains(titles, "Workflow failed: ci.yml in acme-org/billing-api") || strings.Contains(titles, "Workflow failed: deploy.yml") {
+		t.Fatalf("titles: %s", titles)
+	}
+
+	// A deployment that has started is announced once.
+	r.gh.AddActiveRun("acme-org/billing-api", "deploy.yml", "4444444444444444444444444444444444444444", "bob")
+	srv.WatchOnce(ctx, true)
+	srv.WatchOnce(ctx, true)
+	got = urls()
+	if got["billing"] != 3 {
+		t.Fatalf("deploy.started once: %v", got)
+	}
+}
