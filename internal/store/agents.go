@@ -333,3 +333,42 @@ func (s *Store) EnvByName(ctx context.Context, appID, env string) (EnvRow, error
 	}
 	return e, err
 }
+
+// HealthSince returns probe results oldest first, for working out when an environment started or stopped
+// failing.
+func (s *Store) HealthSince(ctx context.Context, envID int64, since time.Time, limit int) ([]HealthRow, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT status, COALESCE(http_code,0), COALESCE(latency_ms,0), checked_at
+		FROM health_checks WHERE app_env_id=$1 AND checked_at >= $2 ORDER BY checked_at ASC, id ASC LIMIT $3`, envID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []HealthRow{}
+	for rows.Next() {
+		var h HealthRow
+		if err := rows.Scan(&h.Status, &h.HTTPCode, &h.LatencyMS, &h.CheckedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
+// TargetAudit returns audit events of the given actions about one target ("app/env"), newest first.
+func (s *Store) TargetAudit(ctx context.Context, target string, actions []string, since time.Time, limit int) ([]AuditRow, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT id, at, actor_type, actor_id, action, target, details, result, ip FROM audit_events
+		WHERE target = $1 AND action = ANY($2) AND at >= $3 ORDER BY at DESC, id DESC LIMIT $4`, target, actions, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AuditRow{}
+	for rows.Next() {
+		var a AuditRow
+		if err := rows.Scan(&a.ID, &a.At, &a.ActorType, &a.ActorID, &a.Action, &a.Target, &a.Details, &a.Result, &a.IP); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}

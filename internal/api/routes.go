@@ -79,6 +79,7 @@ func (s *Server) Routes() []Route {
 		{post, "/api/apps/{app}/envs/{env}/runs/{id}/cancel", "deploy.view", ScopeEnv, s.handleCancel(), false},
 		{post, "/api/apps/{app}/envs/{env}/runs/{id}/rerun", "deploy.view", ScopeEnv, s.handleRerun, false},
 		{get, "/api/apps/{app}/envs/{env}/deployments", "deploy.view", ScopeEnv, s.handleDeployments, false},
+		{get, "/api/apps/{app}/envs/{env}/timeline", "app.view", ScopeEnv, s.handleTimeline, false},
 		{get, "/api/apps/{app}/envs/{env}/deployments/{run}/jobs", "deploy.view", ScopeEnv, s.handleDeploymentJobs, false},
 		{get, "/api/apps/{app}/envs/{env}/deployments/{run}/jobs/{job}/logs", "deploy.view", ScopeEnv, s.handleDeploymentJobLog, false},
 		{get, "/api/approvals", "action.approve", ScopeAny, s.handleApprovals, false},

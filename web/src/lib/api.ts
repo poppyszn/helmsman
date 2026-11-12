@@ -221,3 +221,14 @@ export type LokiStatus = {
 };
 
 export type LokiTest = { reachable: boolean; error?: string; labels: string[] | null; has_logs: boolean; missing_labels?: string[] };
+
+export type TimelineEntry = {
+  at: string;
+  kind: "deploy" | "run" | "restart" | "container" | "health";
+  level: "ok" | "info" | "warn" | "bad";
+  title: string;
+  detail?: string;
+  actor?: string;
+  url?: string;
+};
+export type TimelineResp = { entries: TimelineEntry[]; notes: string[]; since: string };

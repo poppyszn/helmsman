@@ -18,8 +18,9 @@ import { LogViewer } from "@/components/LogViewer";
 import { LogHistory } from "@/components/LogHistory";
 import { RunsPanel } from "@/components/RunsPanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
+import { TimelinePanel } from "@/components/TimelinePanel";
 
-type Tab = "logs" | "events" | "runs" | "deployments";
+type Tab = "logs" | "timeline" | "events" | "runs" | "deployments";
 
 const reasonText: Record<string, string> = {
   agent_offline: "The host agent on this server is offline.",
@@ -172,6 +173,7 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "logs", label: "logs" },
+    { id: "timeline", label: "timeline" },
     { id: "events", label: `events (${s.events.length})` },
     { id: "runs", label: "runs" },
     { id: "deployments", label: "deployments" },
@@ -304,7 +306,9 @@ function EnvInspector({ app, env }: { app: string; env: Env }) {
           ))}
         </div>
 
-        {activeTab === "runs" ? (
+        {activeTab === "timeline" ? (
+          <TimelinePanel app={app} env={env.env} tz={tz} />
+        ) : activeTab === "runs" ? (
           <RunsPanel app={app} env={env.env} tier={env.tier} tz={tz} />
         ) : activeTab === "deployments" ? (
           <DeploymentsPanel app={app} env={env.env} tz={tz} />
