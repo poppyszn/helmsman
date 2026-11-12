@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -144,6 +145,46 @@ func (d *Docker) Containers(ctx context.Context, cfg Config) ([]protocol.Contain
 		out = append(out, c)
 	}
 	return out, raw, nil
+}
+
+// Discovered lists the compose services on this host that cfg does not expose: names, image and state
+// only. Used when discovery is on, so an admin can see what to add to the allowlist.
+func (d *Docker) Discovered(ctx context.Context, cfg Config) ([]protocol.Discovered, error) {
+	filters, _ := json.Marshal(map[string][]string{"label": {labelProject}})
+	var list []struct {
+		State  string
+		Image  string
+		Labels map[string]string
+	}
+	if err := d.getJSON(ctx, "/containers/json", url.Values{"all": {"1"}, "filters": {string(filters)}}, &list); err != nil {
+		return nil, err
+	}
+	best := map[string]protocol.Discovered{}
+	for _, c := range list {
+		p, s := c.Labels[labelProject], c.Labels[labelService]
+		if p == "" || s == "" || cfg.Visible(p, s) {
+			continue
+		}
+		key := p + "/" + s
+		if cur, ok := best[key]; ok && (cur.State == "running" || c.State != "running") {
+			continue
+		}
+		best[key] = protocol.Discovered{ComposeProject: p, Service: s, Image: c.Image, State: c.State}
+	}
+	out := make([]protocol.Discovered, 0, len(best))
+	for _, v := range best {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ComposeProject != out[j].ComposeProject {
+			return out[i].ComposeProject < out[j].ComposeProject
+		}
+		return out[i].Service < out[j].Service
+	})
+	if len(out) > protocol.MaxDiscovered {
+		out = out[:protocol.MaxDiscovered]
+	}
+	return out, nil
 }
 
 func better(a, b protocol.Container) bool {

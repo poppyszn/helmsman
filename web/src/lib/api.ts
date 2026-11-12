@@ -221,3 +221,14 @@ export type LokiStatus = {
 };
 
 export type LokiTest = { reachable: boolean; error?: string; labels: string[] | null; has_logs: boolean; missing_labels?: string[] };
+
+export type AgentContainer = {
+  compose_project: string;
+  service: string;
+  image: string;
+  state: string;
+  exposed: boolean;
+  /** "app/env" entries of the catalog that already use this service. */
+  catalog: string[];
+};
+export type AgentInstall = { agent_yaml: string; compose: string; env: string; commands: string };

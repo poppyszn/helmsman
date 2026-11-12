@@ -10,6 +10,12 @@ The agent is a small Go container that runs on each app server. It dials out to 
 
 The id is what `catalog/apps.yaml` refers to in `agent:`. See [catalog.md](catalog.md).
 
+**The portal shows the files for you.** Right after you create the agent (or issue a new token) it displays the three files for the host, ready to copy, with your server's address and the token filled in: `agent.yaml`, `compose.agent.yml` and `.env`, plus the commands to start it. Steps 2 and 3 below explain what they contain. The generated `agent.yaml` starts with `allow: []` and `discovery: true`, so nothing is exposed until you choose.
+
+## Discovery: find what to add
+
+With `discovery: true` in `agent.yaml`, the agent also reports the **names, image and state** of the compose services on its host that it does not expose (never logs, never an action; at most 200). On **Agents**, the **Containers** button on a row lists everything the agent sees, marked as in the catalog, exposed but not in the catalog, or found and not exposed. Tick the services you want, enter the repository and environment name, and the portal drafts the two pieces to paste: the `allow:` entries for `agent.yaml` and the `apps.yaml` entries (one per service, since the catalog tracks one container per environment). Nothing is changed for you. Discovery is off unless the file turns it on, and without it the host's other services stay invisible.
+
 ## 2. Write `agent.yaml`
 
 Start from [examples/agent.yaml](../examples/agent.yaml). List only the compose projects and services the portal should see.
