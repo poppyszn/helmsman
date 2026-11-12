@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
-import { api, formatTime, useMe, type Agent } from "@/lib/api";
+import { api, formatTime, useMe, type Agent, type AgentInstall } from "@/lib/api";
+import { AgentContainers } from "@/pages/admin/AgentContainers";
+import { CopyBlock } from "@/components/CopyBlock";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-type Created = { id: string; join_token: string; expires_at: string };
+type Created = { id: string; join_token: string; expires_at: string; install?: AgentInstall };
 
 export default function Agents() {
   const { data: me } = useMe();
@@ -26,6 +28,7 @@ export default function Agents() {
   const [token, setToken] = useState<Created | null>(null);
   const [revoke, setRevoke] = useState<Agent | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [hostOf, setHostOf] = useState<string | null>(null);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents"] });
 
@@ -139,6 +142,17 @@ export default function Agents() {
               <span>{copiedToken ? "Copied" : "Copy"}</span>
             </Button>
           </div>
+          {token.install && (
+            <div className="mt-5 space-y-4">
+              <p className="text-sm text-zinc-400">
+                To start the agent, make a folder on the app's host with these three files, then run the commands. The token is shown only now and works once, for an hour.
+              </p>
+              <CopyBlock title="agent.yaml" hint="Nothing is exposed until you add it, and the portal drafts the entries from what the agent finds." text={token.install.agent_yaml} />
+              <CopyBlock title="compose.agent.yml" text={token.install.compose} />
+              <CopyBlock title=".env" hint="chmod 600. Keep it out of git." text={token.install.env} />
+              <CopyBlock title="Commands" text={token.install.commands} />
+            </div>
+          )}
           <div className="mt-3">
             <Button size="sm" variant="secondary" onClick={() => setToken(null)}>
               Dismiss
@@ -217,6 +231,11 @@ export default function Agents() {
                     New token
                   </Button>
                 )}
+                {a.joined && !a.revoked_at && (
+                  <Button size="sm" variant="outline" onClick={() => setHostOf(hostOf === a.id ? null : a.id)}>
+                    {hostOf === a.id ? "Hide containers" : "Containers"}
+                  </Button>
+                )}
                 {!a.revoked_at && (
                   <Button
                     size="sm"
@@ -231,6 +250,8 @@ export default function Agents() {
           ))}
         </tbody>
       </Table>
+
+      {hostOf && <AgentContainers agentId={hostOf} />}
 
       <ConfirmDialog
         open={!!revoke}

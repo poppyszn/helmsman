@@ -43,6 +43,9 @@ type Config struct {
 	Allow            []Allow       `yaml:"allow"`
 	Limits           Limits        `yaml:"limits"`
 	SnapshotInterval time.Duration `yaml:"snapshot_interval"`
+	// Discovery makes the agent report the names of compose services it does not expose, so the portal can
+	// offer to set them up. Off by default. Names, image and state only; nothing else about them is sent.
+	Discovery bool `yaml:"discovery"`
 
 	// From the environment only.
 	JoinToken     string `yaml:"-"`

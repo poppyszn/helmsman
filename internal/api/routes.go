@@ -101,6 +101,7 @@ func (s *Server) Routes() []Route {
 		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},
 		{post, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleCreateAgent, false},
 		{post, "/api/admin/agents/{id}/join-token", "admin.agents", ScopeGlobal, s.handleAgentJoinToken, false},
+		{get, "/api/admin/agents/{id}/containers", "admin.agents", ScopeGlobal, s.handleAgentContainers, false},
 		{post, "/api/admin/agents/{id}/revoke", "admin.agents", ScopeGlobal, s.handleRevokeAgent, false},
 		{post, "/api/admin/agents/{id}/ack-alert", "admin.agents", ScopeGlobal, s.handleAckAgentAlert, false},
 
