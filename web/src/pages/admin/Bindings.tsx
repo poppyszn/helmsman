@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { AccessRequests } from "@/pages/admin/AccessRequests";
 
 type Binding = {
   id: number;
@@ -75,6 +76,8 @@ export default function Bindings() {
           Access & Roles
         </h1>
       </div>
+
+      <AccessRequests />
 
       <Card className="p-5">
         <form

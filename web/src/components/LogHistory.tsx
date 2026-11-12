@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Globe, RefreshCw, Search, Server } from "lucide-react";
 import { api, ApiError, formatTime, useMe, type HistoryEntry, type HistoryResponse } from "@/lib/api";
-import { AnsiText } from "@/components/AnsiText";
+import { LogBody } from "@/components/LogBody";
+import { parseLogLine } from "@/lib/logline";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -274,7 +275,7 @@ export function LogHistory({ app, env, tz }: { app: string; env: string; tz: str
                     <Badge tone={kindTone[r.kind]}>{r.kind}</Badge>
                   </span>
                   <span className="min-w-0 flex-1 font-mono-code text-zinc-200 whitespace-pre-wrap break-words">
-                    {r.source === "container" ? <AnsiText text={r.text} /> : r.text}
+                    {r.source === "container" ? <LogBody raw={r.text} parsed={parseLogLine(r.text)} /> : r.text}
                     {r.source === "browser" && (r.page || r.version || r.session) && (
                       <span className="block text-xs text-zinc-500 mt-0.5">
                         {[r.page, r.version && `v${r.version}`, r.session && `session ${r.session.slice(0, 8)}`].filter(Boolean).join("  ")}

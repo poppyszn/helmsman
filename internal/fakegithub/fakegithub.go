@@ -58,6 +58,8 @@ func DefaultUsers() []User {
 		{ID: 1004, Login: "dave", Name: "Dave Outsider", Orgs: []string{"other-org"}},
 		{ID: 1005, Login: "erin", Name: "Erin Approver", Orgs: []string{"acme-org"}, Teams: []string{"acme-org/leads"}},
 		{ID: 1006, Login: "frank", Name: "Frank Restricted", Restricted: []string{"acme-org"}},
+		// In the allowed org with no role bound: signs in and waits for an admin to grant access.
+		{ID: 1007, Login: "grace", Name: "Grace Newcomer", Orgs: []string{"acme-org"}},
 	}
 }
 

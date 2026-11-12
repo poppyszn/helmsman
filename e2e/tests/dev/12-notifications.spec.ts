@@ -38,7 +38,7 @@ test.describe("an admin", () => {
       await page.getByRole("button", { name: "Add channel" }).click();
       const form = page.getByRole("form", { name: "New channel" });
       await form.getByLabel("Type").selectOption("webhook");
-      await form.getByLabel("Name").fill(name);
+      await form.getByLabel("Name", { exact: true }).fill(name);
       await form.getByPlaceholder("https://hooks.example.com/helmsman").fill(`http://${myAddress()}:${port}/hook`);
       await form.getByRole("button", { name: "Add channel" }).click();
 
@@ -73,12 +73,53 @@ test.describe("an admin", () => {
     await expect(page.getByLabel(`Channel ${name}`)).toHaveCount(0);
   });
 
+  test("a channel can be limited to chosen apps and environments, and its events are grouped", async ({ page }) => {
+    const name = `e2e scoped ${Date.now().toString(36)}`;
+    await page.goto("/admin/notifications");
+    await page.getByRole("button", { name: "Add channel" }).click();
+    const form = page.getByRole("form", { name: "New channel" });
+    await form.getByLabel("Type").selectOption("webhook");
+    await form.getByLabel("Name", { exact: true }).fill(name);
+    await form.getByPlaceholder("https://hooks.example.com/helmsman").fill("http://10.255.255.1:9/hook");
+    // Events are grouped, and workflow runs are among them.
+    const events = form.getByRole("group", { name: "Events" });
+    for (const g of ["Uptime", "Deployments", "Migrations and seeds", "Other GitHub workflows"]) await expect(events.getByText(g, { exact: true })).toBeVisible();
+    await events.getByLabel("A deployment started").check();
+    await events.getByLabel("Another workflow of the app's repository failed (tests, builds, and so on)").check();
+    // Limit it to one app and one environment name.
+    await form.getByRole("group", { name: "Which apps" }).getByLabel("Only these").check();
+    await form.getByRole("group", { name: "Which apps" }).getByLabel("Demo App").check();
+    await form.getByRole("group", { name: "Which environments" }).getByLabel("Only these names").check();
+    await form.getByRole("group", { name: "Which environments" }).getByLabel("staging", { exact: true }).check();
+    await form.getByRole("button", { name: "Add channel" }).click();
+    await page.getByRole("button", { name: "I have saved it" }).click();
+
+    const row = page.getByLabel(`Channel ${name}`);
+    await expect(row).toContainText("apps: demo-app");
+    await expect(row).toContainText(/environments: staging(?!,)/);
+    await expect(row).toContainText("A deployment started");
+
+    // Editing shows the saved scope, and switching back to everything clears it.
+    await row.getByRole("button", { name: "Edit" }).click();
+    const edit = page.getByRole("form", { name: "Edit channel" });
+    await expect(edit.getByRole("group", { name: "Which apps" }).getByLabel("Only these")).toBeChecked();
+    await edit.getByRole("group", { name: "Which apps" }).getByLabel("All apps").check();
+    await edit.getByRole("group", { name: "Which environments" }).getByLabel("All environments").check();
+    await edit.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByLabel(`Channel ${name}`)).toContainText("all apps");
+    await expect(page.getByLabel(`Channel ${name}`)).toContainText("all environments");
+
+    await page.getByLabel(`Channel ${name}`).getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete channel" }).click();
+    await expect(page.getByLabel(`Channel ${name}`)).toHaveCount(0);
+  });
+
   test("an email channel says a mail server is needed, and a bad address is refused", async ({ page }) => {
     const name = `e2e mail ${Date.now().toString(36)}`;
     await page.goto("/admin/notifications");
     await page.getByRole("button", { name: "Add channel" }).click();
     const form = page.getByRole("form", { name: "New channel" });
-    await form.getByLabel("Name").fill(name);
+    await form.getByLabel("Name", { exact: true }).fill(name);
     await form.getByPlaceholder("oncall@example.com, lead@example.com").fill("not-an-address");
     await form.getByRole("button", { name: "Add channel" }).click();
     await expect(form.getByRole("alert")).toContainText("not a plain email address");

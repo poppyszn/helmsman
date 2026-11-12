@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/mail"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -32,6 +33,8 @@ type Channel struct {
 	HasSecret bool      `json:"has_secret"`
 	Events    []string  `json:"events"`
 	Tier      string    `json:"tier"` // all | prod | nonprod
+	Apps      []string  `json:"apps"` // limited to these apps; empty means all
+	Envs      []string  `json:"envs"` // limited to these environment names; empty means all
 	Enabled   bool      `json:"enabled"`
 	CreatedBy string    `json:"created_by,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -47,6 +50,8 @@ type ChannelInput struct {
 	Secret  string   `json:"secret"`
 	Events  []string `json:"events"`
 	Tier    string   `json:"tier"`
+	Apps    []string `json:"apps"`
+	Envs    []string `json:"envs"`
 	Enabled bool     `json:"enabled"`
 }
 
@@ -95,6 +100,13 @@ func (in *ChannelInput) normalize() error {
 	}
 	if in.Tier != "all" && in.Tier != "prod" && in.Tier != "nonprod" {
 		return ErrInvalid("the scope must be all, prod or nonprod environments")
+	}
+	var err error
+	if in.Apps, err = cleanSlugs(in.Apps, "app"); err != nil {
+		return err
+	}
+	if in.Envs, err = cleanSlugs(in.Envs, "environment"); err != nil {
+		return err
 	}
 	seen := map[string]bool{}
 	events := []string{}
@@ -145,19 +157,42 @@ func (in *ChannelInput) normalize() error {
 	return nil
 }
 
+var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// cleanSlugs checks a list of app ids or environment names against the catalog's slug rule.
+func cleanSlugs(in []string, what string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if v == "" || seen[v] {
+			continue
+		}
+		if !slugRE.MatchString(v) {
+			return nil, ErrInvalid("\"" + v + "\" is not a valid " + what + " name")
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	if len(out) > 200 {
+		return nil, ErrInvalid("too many " + what + "s selected")
+	}
+	return out, nil
+}
+
 func newSecret() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-const channelCols = `c.id, c.name, c.kind, c.config, c.secret_enc IS NOT NULL, c.events, c.tier, c.enabled, u.login, c.updated_at`
+const channelCols = `c.id, c.name, c.kind, c.config, c.secret_enc IS NOT NULL, c.events, c.tier, c.apps, c.envs, c.enabled, u.login, c.updated_at`
 
 func scanChannel(r pgx.Row) (Channel, error) {
 	var c Channel
 	var cfg []byte
 	var by *string
-	if err := r.Scan(&c.ID, &c.Name, &c.Kind, &cfg, &c.HasSecret, &c.Events, &c.Tier, &c.Enabled, &by, &c.UpdatedAt); err != nil {
+	if err := r.Scan(&c.ID, &c.Name, &c.Kind, &cfg, &c.HasSecret, &c.Events, &c.Tier, &c.Apps, &c.Envs, &c.Enabled, &by, &c.UpdatedAt); err != nil {
 		return c, err
 	}
 	var cc channelConfig
@@ -219,8 +254,8 @@ func (s *Service) CreateChannel(ctx context.Context, actor store.User, in Channe
 	}
 	cfg, _ := json.Marshal(channelConfig{To: in.To, URL: in.URL})
 	var id int64
-	err := s.St.Pool.QueryRow(ctx, `INSERT INTO notification_channels (name, kind, config, secret_enc, events, tier, enabled, created_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, in.Name, in.Kind, cfg, enc, in.Events, in.Tier, in.Enabled, actor.ID).Scan(&id)
+	err := s.St.Pool.QueryRow(ctx, `INSERT INTO notification_channels (name, kind, config, secret_enc, events, tier, apps, envs, enabled, created_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, in.Name, in.Kind, cfg, enc, in.Events, in.Tier, in.Apps, in.Envs, in.Enabled, actor.ID).Scan(&id)
 	if isUnique(err) {
 		return Channel{}, "", ErrInvalid("a channel with that name already exists")
 	} else if err != nil {
@@ -250,8 +285,8 @@ func (s *Service) UpdateChannel(ctx context.Context, id int64, in ChannelInput) 
 		}
 	}
 	cfg, _ := json.Marshal(channelConfig{To: in.To, URL: in.URL})
-	_, err = s.St.Pool.Exec(ctx, `UPDATE notification_channels SET name=$2, config=$3, events=$4, tier=$5, enabled=$6, updated_at=now(),
-		secret_enc = CASE WHEN $7 THEN secret_enc ELSE $8 END WHERE id=$1`, id, in.Name, cfg, in.Events, in.Tier, in.Enabled, keep, enc)
+	_, err = s.St.Pool.Exec(ctx, `UPDATE notification_channels SET name=$2, config=$3, events=$4, tier=$5, apps=$6, envs=$7, enabled=$8, updated_at=now(),
+		secret_enc = CASE WHEN $9 THEN secret_enc ELSE $10 END WHERE id=$1`, id, in.Name, cfg, in.Events, in.Tier, in.Apps, in.Envs, in.Enabled, keep, enc)
 	if isUnique(err) {
 		return Channel{}, "", ErrInvalid("a channel with that name already exists")
 	} else if err != nil {

@@ -63,7 +63,12 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Name: stateCookie, Value: Sign(s.Cfg.SessionKey, string(b64(raw))), Path: "/auth/github",
 		MaxAge: 600, HttpOnly: true, Secure: s.Cfg.SecureCookies(), SameSite: http.SameSiteLaxMode,
 	})
-	http.Redirect(w, r, s.oauth.AuthCodeURL(st.State, oauth2.S256ChallengeOption(st.Verifier)), http.StatusFound)
+	opts := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(st.Verifier)}
+	// "Switch account" asks GitHub to show its account picker instead of reusing the account that is signed in.
+	if r.URL.Query().Get("switch") == "1" {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", "select_account"))
+	}
+	http.Redirect(w, r, s.oauth.AuthCodeURL(st.State, opts...), http.StatusFound)
 }
 
 // HandleCallback finishes login. Failures redirect to /login?error=<code> with a code the UI maps to text.

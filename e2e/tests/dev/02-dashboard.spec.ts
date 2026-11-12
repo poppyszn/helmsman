@@ -16,6 +16,45 @@ test.describe("alice (admin)", () => {
     await expect(links.getByRole("link", { name: "Dashboards" })).toHaveCount(0);
   });
 
+  test("the address says where you are, and reloading or sharing it lands on the same view", async ({ page }) => {
+    await page.goto("/apps/demo-app");
+    await page.getByRole("tab", { name: "prod" }).click();
+    await expect(page).toHaveURL(/\/apps\/demo-app\/prod$/);
+    await page.getByRole("button", { name: "deployments", exact: true }).click();
+    await expect(page).toHaveURL(/\/apps\/demo-app\/prod\/deployments$/);
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "prod" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("columnheader", { name: "Commit" })).toBeVisible();
+    // The browser's back button goes back through the views.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/apps\/demo-app\/prod$/);
+    // An address with an unknown environment or tab is corrected, not an error page.
+    await page.goto("/apps/demo-app/nope");
+    await expect(page).toHaveURL(/\/apps\/demo-app$/);
+    await page.goto("/apps/demo-app/staging/nope");
+    await expect(page).toHaveURL(/\/apps\/demo-app\/staging$/);
+    // The breadcrumb follows the address.
+    await page.goto("/apps/demo-app/prod/timeline");
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(crumbs.getByRole("link", { name: "prod" })).toHaveAttribute("href", "/apps/demo-app/prod");
+    await expect(crumbs.getByText("timeline")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("the breadcrumbs at the top are links back up the path", async ({ page }) => {
+    await page.goto("/apps/demo-app");
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(crumbs.getByText("demo-app")).toHaveAttribute("aria-current", "page");
+    await crumbs.getByRole("link", { name: "apps" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto("/apps/demo-app");
+    await crumbs.getByRole("link", { name: "helmsman" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    // A step without a page of its own is not a link.
+    await page.goto("/admin/integrations");
+    await expect(crumbs.getByRole("link", { name: "admin" })).toHaveCount(0);
+    await expect(crumbs.getByText("integrations")).toHaveAttribute("aria-current", "page");
+  });
+
   test("the dashboard lists the app with both environments and their status", async ({ page }) => {
     await page.goto("/");
     const card = page.getByRole("link", { name: /Demo App/ });

@@ -45,6 +45,8 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 			"agents":  c.Principal.AllowedGlobal(rbac.AdminAgents),
 			"approve": c.Principal.AllowedAnyEnv(rbac.ActionApprove, rbac.Wildcard),
 		},
+		// has_access is false for someone who signed in but has no role yet: the UI then says an admin must grant it.
+		"has_access": c.Principal.IsAdmin || len(c.Principal.Bindings) > 0,
 		"display_tz": s.Cfg.DisplayTZ,
 	})
 }

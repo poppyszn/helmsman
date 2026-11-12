@@ -63,7 +63,7 @@ type Service struct {
 	LogCap         int // bytes of job logs kept per run
 
 	// Hook is told about the moments people care about: a production run waiting for approval, and a run
-	// that failed or succeeded. kind is "pending_approval", "failed" or "succeeded". Optional.
+	// that started, failed or succeeded. kind is "pending_approval", "started", "failed" or "succeeded". Optional.
 	Hook func(ctx context.Context, kind string, run store.ActionRun)
 
 	mu           sync.Mutex
@@ -247,6 +247,7 @@ func (s *Service) dispatch(ctx context.Context, id string) {
 	}
 	_ = s.Store.MarkDispatched(ctx, id, ref, warning, s.now(), s.now().Add(s.CorrelateEvery))
 	s.auditSystem(ctx, "action.run.dispatched", run, "ok", map[string]any{"ref": ref, "warning": warning, "command": run.Action})
+	s.emit(ctx, "started", id)
 }
 
 // describe turns a GitHub error into something an engineer can act on, and flags the repo

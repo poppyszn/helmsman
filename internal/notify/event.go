@@ -13,12 +13,17 @@ import (
 
 // Event types an admin can subscribe a channel to.
 const (
+	RunStarted         = "run.started"
 	RunFailed          = "run.failed"
 	RunSucceeded       = "run.succeeded"
 	RunPendingApproval = "run.pending_approval"
+	DeployStarted      = "deploy.started"
 	DeployFailed       = "deploy.failed"
 	DeploySucceeded    = "deploy.succeeded"
+	WorkflowFailed     = "workflow.failed"
+	WorkflowSucceeded  = "workflow.succeeded"
 	EnvDown            = "env.down"
+	EnvDegraded        = "env.degraded"
 	EnvRecovered       = "env.recovered"
 	EnvCrashLoop       = "env.crash_loop"
 	AgentOffline       = "agent.offline"
@@ -28,22 +33,28 @@ const (
 // Type describes an event type for the admin page.
 type Type struct {
 	ID      string `json:"id"`
+	Group   string `json:"group"`
 	Label   string `json:"label"`
 	Default bool   `json:"default"` // pre-selected for a new channel
 }
 
-// Types lists every event type, in the order the page shows them.
+// Types lists every event type, grouped, in the order the page shows them.
 var Types = []Type{
-	{RunFailed, "A migration or seed failed", true},
-	{RunPendingApproval, "A production run is waiting for approval", true},
-	{RunSucceeded, "A migration or seed succeeded", false},
-	{DeployFailed, "A deployment failed", true},
-	{DeploySucceeded, "A deployment succeeded", false},
-	{EnvDown, "An environment went down", true},
-	{EnvCrashLoop, "A container is crash looping", true},
-	{EnvRecovered, "An environment recovered", false},
-	{AgentOffline, "An agent went offline", true},
-	{AgentOnline, "An agent came back online", false},
+	{EnvDown, "Uptime", "An environment went down", true},
+	{EnvDegraded, "Uptime", "An environment became slow or unhealthy", false},
+	{EnvRecovered, "Uptime", "An environment recovered", false},
+	{EnvCrashLoop, "Uptime", "A container is crash looping", true},
+	{AgentOffline, "Uptime", "An agent (a host) went offline", true},
+	{AgentOnline, "Uptime", "An agent came back online", false},
+	{DeployStarted, "Deployments", "A deployment started", false},
+	{DeployFailed, "Deployments", "A deployment failed", true},
+	{DeploySucceeded, "Deployments", "A deployment succeeded", false},
+	{RunPendingApproval, "Migrations and seeds", "A run is waiting for approval", true},
+	{RunStarted, "Migrations and seeds", "A migration or seed started", false},
+	{RunFailed, "Migrations and seeds", "A migration or seed failed", true},
+	{RunSucceeded, "Migrations and seeds", "A migration or seed succeeded", false},
+	{WorkflowFailed, "Other GitHub workflows", "Another workflow of the app's repository failed (tests, builds, and so on)", false},
+	{WorkflowSucceeded, "Other GitHub workflows", "Another workflow of the app's repository succeeded", false},
 }
 
 // ValidType reports whether id is a known event type.
@@ -62,6 +73,9 @@ type Event struct {
 	// App and Env are catalog ids. Both are empty for an event about an agent or a whole repository.
 	App string `json:"app,omitempty"`
 	Env string `json:"env,omitempty"`
+	// Apps lists every app an event about a host or a repository concerns (the apps on an agent, the apps of
+	// a repository), so a channel limited to some apps still gets it.
+	Apps []string `json:"apps,omitempty"`
 	// Tier is nonprod or prod when the event belongs to an environment, empty otherwise.
 	Tier    string `json:"tier,omitempty"`
 	Title   string `json:"title"`
@@ -81,22 +95,50 @@ const cooldown = 10 * time.Minute
 
 func flappy(t string) bool { return strings.HasPrefix(t, "env.") || strings.HasPrefix(t, "agent.") }
 
-// Matches reports whether a channel with these settings wants the event.
-func Matches(events []string, tier string, ev Event) bool {
-	found := false
-	for _, e := range events {
-		if e == ev.Type {
-			found = true
+// Scope is what a channel is limited to. Empty lists mean everything.
+type Scope struct {
+	Tier string // all | prod | nonprod
+	Apps []string
+	Envs []string
+}
+
+func inList(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
 		}
 	}
-	if !found {
+	return false
+}
+
+// Matches reports whether a channel with these events and scope wants the event.
+func Matches(events []string, sc Scope, ev Event) bool {
+	if !inList(events, ev.Type) {
 		return false
 	}
-	switch tier {
+	switch sc.Tier {
 	case "prod":
-		return ev.Tier == "prod"
+		if ev.Tier != "prod" {
+			return false
+		}
 	case "nonprod":
-		return ev.Tier == "nonprod"
+		if ev.Tier != "nonprod" {
+			return false
+		}
+	}
+	if len(sc.Apps) > 0 {
+		ok := ev.App != "" && inList(sc.Apps, ev.App)
+		for _, a := range ev.Apps {
+			ok = ok || inList(sc.Apps, a)
+		}
+		if !ok {
+			return false
+		}
+	}
+	// An event with no environment (a host going offline) cannot be scoped to one, so it does not pass an
+	// environment filter.
+	if len(sc.Envs) > 0 && (ev.Env == "" || !inList(sc.Envs, ev.Env)) {
+		return false
 	}
 	return true
 }

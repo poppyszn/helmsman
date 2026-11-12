@@ -111,6 +111,7 @@ func (s *Server) registerActions(m *http.ServeMux) {
 	m.HandleFunc("GET /repos/{owner}/{repo}/contents/.github/workflows/{file}", s.repoAPI(s.getWorkflowFile))
 	m.HandleFunc("POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches", s.repoAPI(s.dispatch))
 	m.HandleFunc("GET /repos/{owner}/{repo}/actions/workflows/{file}/runs", s.repoAPI(s.listRuns))
+	m.HandleFunc("GET /repos/{owner}/{repo}/actions/runs", s.repoAPI(s.listRepoRuns))
 	m.HandleFunc("GET /repos/{owner}/{repo}/actions/runs/{id}", s.repoAPI(s.getRun))
 	m.HandleFunc("GET /repos/{owner}/{repo}/actions/runs/{id}/jobs", s.repoAPI(s.getJobs))
 	m.HandleFunc("GET /repos/{owner}/{repo}/actions/jobs/{id}/logs", s.repoAPI(s.getJobLogs))
@@ -376,6 +377,7 @@ type outRun struct {
 	HeadSHA    string    `json:"head_sha"`
 	HTMLURL    string    `json:"html_url"`
 	Event      string    `json:"event"`
+	Path       string    `json:"path"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	Actor      struct {
@@ -385,7 +387,7 @@ type outRun struct {
 
 // view computes a run's state at time t. Caller holds the lock.
 func (a *actionsState) view(r *fakeRun, t time.Time) outRun {
-	o := outRun{ID: r.ID, Name: r.Workflow, Title: r.Title, HeadSHA: r.HeadSHA, Event: r.Event, CreatedAt: r.CreatedAt, UpdatedAt: t,
+	o := outRun{ID: r.ID, Name: r.Workflow, Path: ".github/workflows/" + r.Workflow, Title: r.Title, HeadSHA: r.HeadSHA, Event: r.Event, CreatedAt: r.CreatedAt, UpdatedAt: t,
 		HTMLURL: fmt.Sprintf("https://github.example/%s/actions/runs/%d", r.Repo, r.ID)}
 	o.Actor.Login = r.Actor
 	done := func(c string) { o.Status = "completed"; o.Conclusion = &c }
@@ -414,6 +416,24 @@ func (s *Server) listRuns(w http.ResponseWriter, r *http.Request) {
 		if x.Repo == repoName(r) && x.Workflow == r.PathValue("file") && !now.Before(x.AppearAt) {
 			v := a.view(x, now)
 			v.UpdatedAt = x.CreatedAt // stable body while nothing changes, so ETags can hit
+			out = append(out, v)
+		}
+	}
+	s.mu.Unlock()
+	withETag(w, r, map[string]any{"total_count": len(out), "workflow_runs": out})
+}
+
+// listRepoRuns lists the runs of every workflow of a repository, newest first.
+func (s *Server) listRepoRuns(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	a := s.actions()
+	now := a.now()
+	out := []outRun{}
+	for i := len(a.runs) - 1; i >= 0; i-- {
+		x := a.runs[i]
+		if x.Repo == repoName(r) && !now.Before(x.AppearAt) {
+			v := a.view(x, now)
+			v.UpdatedAt = x.CreatedAt
 			out = append(out, v)
 		}
 	}
@@ -592,6 +612,19 @@ func (s *Server) AddRun(repo, workflow, sha, actor, conclusion string, at time.T
 	a := s.actions()
 	r := &fakeRun{ID: a.nextRun, Repo: repo, Workflow: workflow, Title: "deploy", Event: "push", HeadSHA: sha, Actor: actor,
 		CreatedAt: at, AppearAt: at, StartAt: at, EndAt: at.Add(time.Minute), Conclusion: conclusion, Command: "deploy"}
+	a.nextRun++
+	a.runs = append(a.runs, r)
+	return r.ID
+}
+
+// AddActiveRun inserts a run that has started and has not finished (it reports in_progress).
+func (s *Server) AddActiveRun(repo, workflow, sha, actor string) int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.actions()
+	now := a.now()
+	r := &fakeRun{ID: a.nextRun, Repo: repo, Workflow: workflow, Title: "deploy", Event: "push", HeadSHA: sha, Actor: actor,
+		CreatedAt: now.Add(-time.Minute), AppearAt: now.Add(-time.Minute), StartAt: now.Add(-time.Minute), EndAt: now.Add(24 * time.Hour), Conclusion: "success", Command: "deploy"}
 	a.nextRun++
 	a.runs = append(a.runs, r)
 	return r.ID
