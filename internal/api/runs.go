@@ -82,7 +82,7 @@ func (s *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 		"can_migrate":     c.Principal.Allowed(rbac.ActionMigrate, sc) && !disabled,
 		"can_seed":        c.Principal.Allowed(rbac.ActionSeed, sc) && t.Spec.SeedAllowed() && !disabled,
 		"seed_allowed":    t.Spec.SeedAllowed(),
-		"needs_approval":  t.Env.Tier == rbac.TierProd,
+		"needs_approval":  t.Spec.NeedsApproval(),
 		"disabled_reason": problem,
 		"repo":            t.App.Repo,
 	})

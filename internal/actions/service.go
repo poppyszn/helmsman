@@ -167,7 +167,8 @@ func (s *Service) Request(ctx context.Context, a Actor, app, env, command, rerun
 		}
 	}
 	status := "dispatching"
-	if t.Env.Tier == rbac.TierProd {
+	needsApproval := t.Spec.NeedsApproval()
+	if needsApproval {
 		status = "pending_approval"
 	}
 	id := newUUID()
@@ -184,7 +185,7 @@ func (s *Service) Request(ctx context.Context, a Actor, app, env, command, rerun
 		}
 		return Result{}, err
 	}
-	det := map[string]any{"run_id": id, "command": command, "tier": t.Env.Tier, "status": status, "rerun_of": rerunOf}
+	det := map[string]any{"run_id": id, "command": command, "tier": t.Env.Tier, "status": status, "rerun_of": rerunOf, "approval_required": needsApproval}
 	if err := s.audit(ctx, a, "action.run.requested", t, "ok", det); err != nil {
 		_ = s.Store.Fail(ctx, id, "audit log unavailable; nothing was started")
 		return Result{}, fail(http.StatusInternalServerError, "could not write the audit log; nothing was started")

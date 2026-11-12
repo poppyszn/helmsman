@@ -27,6 +27,7 @@ apps:
         health: { url: http://demo-app-2:8080/health, via: agent }
         workflows: { deploy: deploy.yml, migrate: migrate.yml }
         github_environment: production
+        require_approval: true   # so the approval flow can be tried locally
   - id: static-demo
     name: Static Demo
     repo: acme-org/demo-app
