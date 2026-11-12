@@ -1,5 +1,7 @@
 # Dev agent config. Production agents list only the services they should expose.
 idp_url: ws://server:8080/agent/ws
+# Report the names of the other services on this host, so the portal can offer to set them up.
+discovery: true
 allow:
   - compose_project: helmsman-dev
     services: [demo-app, demo-app-2, static-demo]

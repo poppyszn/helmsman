@@ -2,6 +2,10 @@
 # The agent refuses anything not listed here, even if the server asks for it.
 idp_url: wss://idp.example.com/agent/ws
 
+# Optional. Report the names (not logs) of compose services on this host that are not listed below, so the
+# portal can draft the entries to add them. Off unless you set it.
+discovery: false
+
 allow:
   - compose_project: billing        # the docker compose project name
     services: [api, worker]         # only these services are visible

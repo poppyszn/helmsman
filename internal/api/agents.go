@@ -68,7 +68,7 @@ func (s *Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.auditAgent(r, "agent.create", req.ID, nil)
-	writeJSON(w, http.StatusCreated, map[string]any{"id": req.ID, "join_token": tok, "expires_at": exp})
+	writeJSON(w, http.StatusCreated, map[string]any{"id": req.ID, "join_token": tok, "expires_at": exp, "install": s.installBundle(req.ID, tok)})
 }
 
 func (s *Server) handleAgentJoinToken(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (s *Server) handleAgentJoinToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.auditAgent(r, "agent.join_token", id, nil)
-	writeJSON(w, http.StatusOK, map[string]any{"id": id, "join_token": tok, "expires_at": exp})
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "join_token": tok, "expires_at": exp, "install": s.installBundle(id, tok)})
 }
 
 func (s *Server) handleRevokeAgent(w http.ResponseWriter, r *http.Request) {
