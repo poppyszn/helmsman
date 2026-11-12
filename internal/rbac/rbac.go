@@ -61,11 +61,17 @@ func has(perms []string, p string) bool {
 
 // Allowed reports whether the principal holds perm for the exact app and env.
 // Rules: any matching binding is enough (union); an env of "*" matches only
-// nonprod tiers, so prod must be granted by explicit env name. Site admins
+// nonprod tiers, so prod must be granted by explicit env name; action.seed is
+// never granted on prod to anyone but a site admin. Site admins
 // (users.is_admin) hold every permission everywhere, including prod.
 func (p Principal) Allowed(perm string, s Scope) bool {
 	if p.IsAdmin {
 		return true
+	}
+	// Seeding production is never granted by a role or a binding, whatever it says: only a site admin can,
+	// and even then only where the environment's allow_seed lets it (checked by the caller).
+	if perm == ActionSeed && s.Tier == TierProd {
+		return false
 	}
 	for _, b := range p.Bindings {
 		if !has(b.Permissions, perm) {

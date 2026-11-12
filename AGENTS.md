@@ -44,6 +44,7 @@ AI agents must strictly uphold these inviolable constraints:
 
 4. **Production Tier Protection (`tier: prod`)**:
    - Role bindings with wildcard environments (`env: *`) **NEVER** match `tier: prod` environments. Access to production requires an explicit binding where `env == "prod"` (or superadmin status `is_admin = true`).
+   - Seeding production is never granted by a role or binding: `action.seed` on a `tier: prod` environment is held only by site admins (`rbac.Allowed`), so a developer can migrate production but not seed it. Even for a site admin the environment's `allow_seed` still decides.
    - Environments configured with `allow_seed: false` (standard for `prod`) must reject seed requests regardless of user role, even for site admins.
    - Restarts in production require the user to explicitly type the environment name in the UI.
 
