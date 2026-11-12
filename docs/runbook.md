@@ -194,7 +194,7 @@ The 10 viewers all report "closed early". That is the fleet-wide drop closing th
 | Command | What it does |
 |---|---|
 | `make e2e` | The whole product against the dev stack (starts it if needed): sign in and out, RBAC, the dashboard, live logs, restarts, migrations and seeds (success, failure, rerun, cancel, 422, rate limit, waiting, never appears, one run per environment), production approval by a second person, the audit log, and the admin pages. 52 tests, about 3 minutes. |
-| `make e2e-server` | The checks of a real deployment, described in the server setup guide. Set `E2E_SERVER_URL` for a different address. |
+| `make e2e-server` | The checks of a real deployment, described in the server setup guide. Set `E2E_SERVER_URL` to the address to test. |
 | `make e2e E2E_ARGS="tests/dev/05-runs.spec.ts"` | Run one file. Reports and traces land in `e2e/playwright-report` and `e2e/test-results`. |
 
 The dev run signs in as the fake GitHub users (alice admin, bob developer, carol viewer, erin approver) and speeds up the fake GitHub's run timing. It leaves runs and audit rows in the dev database. Run `docker compose -f deploy/compose.dev.yml down -v` and `make up` for a clean slate.

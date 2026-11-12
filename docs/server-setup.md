@@ -251,7 +251,7 @@ Open `https://portal.example.com` and sign in with GitHub.
 
 ## 7. Check the live server
 
-From your laptop, in the repository, `make e2e-server` checks without changing anything: HTTPS and the certificate, the redirect, the security headers, that the sign-in redirect uses state and PKCE with the right callback URL, that the API is closed without a session, and that an agent cannot connect without a credential. Set `E2E_SERVER_URL` if your name differs from the default. To also test the signed-in pages, turn on the break-glass admin (see the runbook) and pass `E2E_BREAKGLASS_PASSWORD` and `E2E_BREAKGLASS_TOTP_SECRET`.
+From your laptop, in the repository, `make e2e-server` checks without changing anything: HTTPS and the certificate, the redirect, the security headers, that the sign-in redirect uses state and PKCE with the right callback URL, that the API is closed without a session, and that an agent cannot connect without a credential. Set `E2E_SERVER_URL` to your portal address, for example `E2E_SERVER_URL=https://portal.example.com make e2e-server`. To also test the signed-in pages, turn on the break-glass admin (see the runbook) and pass `E2E_BREAKGLASS_PASSWORD` and `E2E_BREAKGLASS_TOTP_SECRET`.
 
 ## 8. Connect an app
 

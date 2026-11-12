@@ -7,7 +7,7 @@ import { totp } from "../support";
 //   E2E_BREAKGLASS_TOTP_SECRET   the base32 TOTP secret
 // It deliberately never tries a wrong password: five failures lock break-glass for 15 minutes.
 //   make e2e-server
-const host = new URL(process.env.E2E_SERVER_URL ?? "https://portal.alphaskysolutions.com");
+const host = new URL(process.env.E2E_SERVER_URL ?? "https://portal.example.com");
 
 test.describe("the public surface", () => {
   test("health and readiness answer over HTTPS with a valid certificate", async ({ request }) => {
