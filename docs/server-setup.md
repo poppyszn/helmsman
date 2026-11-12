@@ -136,21 +136,26 @@ Check it: `bash preflight.sh` prints `preflight: ok` (a warning tells you if the
 
 ## 5. Start Helmsman
 
-The server image is private. Its tag is `latest` when you copy files by hand (it exists once the **Publish: Images** workflow has run on `main`), or the commit SHA the pipeline built.
+The images are GitHub packages (`ghcr.io/poppyszn/helmsman-server` and `helmsman-agent`). Make them **public** in their package settings (Package settings > Danger Zone > Change visibility): package visibility is separate from the repository's, so the repository stays private, and hosts then pull with no login. The tag is `latest` when you copy files by hand (it exists once the **Publish: Images** workflow has run on `main`), or the commit SHA the pipeline built.
 
-**By hand.** Copy a token to your clipboard on your laptop (the `gh` login needs the `read:packages` scope once):
+**By hand.**
+```bash
+docker compose --env-file .env up -d postgres          # first start creates the limited helmsman_app role
+docker compose --env-file .env pull server
+docker compose --env-file .env up -d
+docker compose --env-file .env ps                      # everything healthy
+```
+
+**If a package is private**, log in around the pull and log out straight away. Copy a token to your clipboard on your laptop (the `gh` login needs the `read:packages` scope once):
 ```bash
 gh auth refresh -h github.com -s read:packages
 gh auth token | pbcopy
 ```
-Then on the server, paste it at the password prompt, pull, and log out straight away:
+Then on the host, paste it at the password prompt:
 ```bash
-docker compose --env-file .env up -d postgres          # first start creates the limited helmsman_app role
 docker login ghcr.io -u <your github login>
 docker compose --env-file .env pull server
 docker logout ghcr.io
-docker compose --env-file .env up -d
-docker compose --env-file .env ps                      # everything healthy
 ```
 A classic personal access token with only `read:packages` is safer than your `gh` token if you prefer to make one.
 
@@ -277,14 +282,13 @@ An app needs three things: an **agent** on the host that runs it, an **entry in 
    sed -i "s/^DOCKER_GID=.*/DOCKER_GID=$(stat -c %g /var/run/docker.sock)/" .env
    nano .env        # paste the join token
    ```
-4. The compose file is not called `compose.yml`, so name it. The agent image is private: log in, pull, log out, then start.
+4. The compose file is not called `compose.yml`, so name it. With the agent package public there is no login:
    ```bash
-   docker login ghcr.io -u <your github login>
    docker compose -f compose.agent.yml --env-file .env pull
-   docker logout ghcr.io
    docker compose -f compose.agent.yml --env-file .env up -d
    docker compose -f compose.agent.yml --env-file .env logs --tail 20      # "joined", then "connected"
    ```
+   If the package is private, run `docker login ghcr.io -u <your github login>` before the pull and `docker logout ghcr.io` after it.
    The agent keeps its own credential in its data volume, so remove `IDP_JOIN_TOKEN` from `.env` afterwards. Changing `agent.yaml` needs `up -d --force-recreate`, because the agent reads it at start.
 
 ### The catalog
@@ -344,7 +348,7 @@ Open **Setup check** in the sidebar first (admins). It runs the checks for the p
 | "Could not reach GitHub: the GitHub App private key could not be read" | The file must be owned by `65532:65532`, mode 400. If the path did not exist when the container first started, Docker made a directory there: remove it and put the file in place. Then recreate the server. |
 | Live tail shows "connection refused"; nginx logs a 403 on `/ws/` | The nginx WebSocket location is missing `proxy_set_header Host $host`. Use the config in step 6. |
 | `docker compose` says `no configuration file provided` | The file is not named `compose.yml`. Add `-f compose.agent.yml`. |
-| `manifest unknown` or `denied` when pulling | The tag does not exist yet (wait for **Publish: Images**, or set `IMAGE_TAG`), or you are not logged in to `ghcr.io`. |
+| `manifest unknown` or `denied` when pulling | The tag does not exist yet (wait for **Publish: Images**, or set `IMAGE_TAG`), or the package is private and you are not logged in to `ghcr.io` (make it public, or log in). |
 | Agent never connects, or logs a join error | The join token expired or was already used: create a new agent. Check `idp_url` and that `/agent/ws` reaches the server through nginx. |
 | Catalog rejected: agent not registered | Create the agent first; its name in the catalog must match exactly. |
 | Status `unknown` and actions disabled | The agent is offline. Check its logs. |
