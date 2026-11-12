@@ -11,7 +11,7 @@
 - If an org restricts third-party OAuth apps, the sign-in page names it. An owner of that org must approve the Helmsman OAuth app.
 - First admin: put your numeric GitHub id in `IDP_BOOTSTRAP_ADMIN_GITHUB_IDS` before your first sign-in (it applies on first login only). After that, admins grant roles under **Access**.
 - Roles are bound to users or `org/team` subjects per app and env. Bindings union. `env: *` never covers prod.
-- Break-glass local admin (`IDP_BREAKGLASS_ENABLED`) is not built yet.
+- Break-glass local admin (`IDP_BREAKGLASS_ENABLED`) is off by default; see [Break-glass admin](#break-glass-admin).
 
 ## Dev stack accounts
 
@@ -37,13 +37,13 @@
 - **Revoke an agent:** Agents > Revoke. The socket closes at once. Environments that use it show `unknown`. To replace it, create a new agent and update the catalog.
 - **Logs:** history is "since container start" because the agent reads `docker logs`. An open stream re-checks the viewer's access every 60 s and closes if access was removed. Opening a stream is written to the audit log (who, which env); log text never is.
 - **Restart:** needs `action.restart` on the env. It is audited twice, when requested and with the result. Production asks you to type the environment name.
-- **Retention:** container events and health checks are kept for 14 days.
+- **Retention:** see [Retention](#retention) for how long each kind of data is kept.
 
 ## Database
 
 Migrations run automatically at server start (goose, embedded). Never edit an applied migration; add a new one. `audit_events` is append-only: UPDATE, DELETE and TRUNCATE are rejected by trigger.
 
-Backup, restore and production operations are written in M4.
+Backup, restore and production operations are in [Backups and restore](#backups-and-restore) and [Production deploy](#production-deploy-idp-host).
 
 ## Migrations, seeds and deployments (GitHub Actions)
 
@@ -51,7 +51,7 @@ Helmsman starts the catalog's `workflows.migrate` workflow with `workflow_dispat
 
 ### How a run goes
 
-1. A person with `action.migrate` or `action.seed` on the environment starts it from the **runs** tab. Production tiers create a request instead and wait for approval.
+1. A person with `action.migrate` or `action.seed` on the environment starts it from the **runs** tab. Environments with `require_approval: true` create a request instead and wait for a second person.
 2. The ref is the tag that points at the running image revision. If no tag matches, or the revision is unknown, the default branch is used and the run shows a warning.
 3. GitHub answers a dispatch with no run id, so Helmsman finds the run by the correlation id, which the workflow must put in its `run-name`. See `examples/workflows/migrate.yml`. It checks every 3 seconds for 60 seconds. After that the run becomes `unknown` and links to the workflow.
 4. The run and its jobs are polled every 5 seconds. The job logs are stored when the run ends, up to 5 MB per run, keeping the end of each log.
@@ -192,7 +192,7 @@ The 10 viewers all report "closed early". That is the fleet-wide drop closing th
 
 | Command | What it does |
 |---|---|
-| `make e2e` | The whole product against the dev stack (starts it if needed): sign in and out, RBAC, the dashboard, live logs, restarts, migrations and seeds (success, failure, rerun, cancel, 422, rate limit, waiting, never appears, one run per environment), production approval by a second person, the audit log, and the admin pages. 52 tests, about 3 minutes. |
+| `make e2e` | The whole product against the dev stack (starts it if needed): sign in and out, RBAC, the dashboard, live logs, restarts, migrations and seeds (success, failure, rerun, cancel, 422, rate limit, waiting, never appears, one run per environment), production approval by a second person, the audit log, and the admin pages. See `e2e/tests/dev` for the list. |
 | `make e2e-server` | The checks of a real deployment, described in the server setup guide. Set `E2E_SERVER_URL` for a different address. |
 | `make e2e E2E_ARGS="tests/dev/05-runs.spec.ts"` | Run one file. Reports and traces land in `e2e/playwright-report` and `e2e/test-results`. |
 

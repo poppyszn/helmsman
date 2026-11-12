@@ -15,12 +15,9 @@
 - Enforce strict Role-Based Access Control (RBAC) linked to GitHub Organizations and Teams.
 - Maintain an append-only, tamper-proof audit log for every administrative and operational action.
 
-### Milestone Roadmap & Current State
-- **M0: Foundation (Completed)**: Dev compose stack, PostgreSQL schema with goose migrations, Chi HTTP router, embedded React SPA shell, Dockerfiles, and GitHub Actions CI.
-- **M1: Auth, Catalog, RBAC, Admin (Completed)**: GitHub OAuth flow (PKCE + state), org membership refresh worker (every 15m), dynamic app catalog parser (`catalog/apps.yaml`) with hot-reload and validation, RBAC engine (user and team bindings), and admin views (Users, Roles, Bindings, Catalog, Audit).
-- **M2: Agent, Status, Logs, Restart (Completed)**: Dedicated host agent daemon, join-token exchange, long-lived credentials, Docker socket client (containers, logs, restart, events), agent hub over WebSocket, health checking (`via: server` and `via: agent`), crash loop detection, live log viewer, and container restart dialogs.
-- **M3: GitHub Runs (Built, awaiting real GitHub verification)**: Triggering and tracking GitHub Actions workflows (migrations, seeds, deploys) with correlation IDs, approval workflows, status synchronization, and GitHub App integration.
-- **M4: Production Readiness & Operations (Built, awaiting a real host and domain)**: Backup and restore procedures, split database roles (migration owner vs runtime app), production deployment automation, and break-glass admin.
+### Current state
+
+The milestones M0 to M4 are built: the dev stack and CI, GitHub login, catalog and RBAC, the agent with status, logs and restarts, GitHub Actions runs, and the production stack with backups. Since then: log history (Loki, Alloy, Faro), the Integrations page, the deployments view with steps and logs, notifications (email and webhooks), a setup check page, agent install files and container discovery, access requests, tags, organization switching and external tools on the Apps page, a per-environment timeline, and optional second-person approval. What is next is in [docs/roadmap.md](docs/roadmap.md); the map of the code is [docs/architecture.md](docs/architecture.md); how to work on it is [CONTRIBUTING.md](CONTRIBUTING.md). Keep those three in step with this file.
 
 ---
 
@@ -92,44 +89,36 @@ AI agents must strictly uphold these inviolable constraints:
 
 ```
 .
-├── .github/workflows/          # CI checks and Docker image publish workflows
-├── catalog/
-│   └── apps.yaml               # Canonical app catalog (reviewed via PR)
+├── .github/                    # CI and publish workflows, the PR template, issue templates
+├── catalog/apps.yaml           # The dev catalog (the production catalog is deploy/server/apps.yaml)
 ├── cmd/
-│   ├── agent/                  # Entrypoint for the host idp-agent daemon
-│   └── server/                 # Entrypoint for the Helmsman API and web portal
-├── deploy/
-│   ├── compose.dev.yml         # Full local development environment
-│   ├── compose.agent.yml       # Production/staging deployment compose for agent
-│   ├── seed-dev.sql            # Idempotent dev database seed
-│   ├── agent.dev.yaml          # Local agent allowlist configuration
-│   └── docker/                 # Container Dockerfiles (server, agent, tool)
-├── docs/                       # Operational runbook, catalog spec, agent installation, design system
-│   └── design-system.md        # Canonical UI/UX design spec and component guidelines
-├── examples/                   # Reference configs and GitHub Actions workflows
+│   ├── agent/                  # The host agent
+│   ├── breakglass-init/        # Generates the emergency admin's password hash and TOTP secret
+│   └── server/                 # The API and web portal
+├── deploy/                     # Compose files (dev, server, agent, logs), proxy config, backups, Dockerfiles
+├── docs/                       # See docs/README.md for the index
+├── e2e/                        # Playwright tests (tests/dev and tests/server)
+├── examples/                   # agent.yaml, workflows, log history samples
 ├── internal/
-│   ├── actions/                # Workflow dispatch and action runs (M3)
-│   ├── agent/                  # Host agent implementation (Docker socket, logs, backoff)
-│   ├── agenthub/               # Server-side agent connection hub and WebSocket broker
-│   ├── api/                    # HTTP handlers, middlewares, routes, integration tests
-│   ├── audit/                  # Append-only audit logger
-│   ├── auth/                   # GitHub OAuth, session management, PKCE, token refresh
-│   ├── catalog/                # Catalog parser, YAML validator, and sync manager
-│   ├── config/                 # Environment configuration loader and validation
-│   ├── fakegithub/             # Mock GitHub OAuth provider for testing
-│   ├── gh/                     # GitHub API client (M3)
-│   ├── health/                 # Health check derivation and scheduler
-│   ├── rbac/                   # Principal resolution, permission matrix, scope evaluation
-│   └── store/                  # Database queries, goose migrations, and data access
-│       └── migrations/         # SQL migration scripts (00001_init.sql, 00002_agents.sql)
-├── pkg/
-│   └── protocol/               # Shared agent <-> server JSON envelopes and types
-├── tools/                      # Tool binaries (demo-app, fake-github, loadtest)
-└── web/                        # React SPA source code
-    └── src/
-        ├── components/         # Reusable UI widgets (LogViewer, StatusBadge, Layout, etc.)
-        ├── lib/                # API client (`api.ts`), utilities, type definitions
-        └── pages/              # Route views (AppDetail, Apps, Login, admin pages)
+│   ├── actions/                # Migrations and seeds through GitHub Actions, deployments, repository checks
+│   ├── agent/                  # The agent: Docker socket, allowlist, logs, reconnect
+│   ├── agenthub/               # Server side of the agent connection
+│   ├── api/                    # Handlers, middleware, the route table, integration tests
+│   ├── audit/                  # Append-only audit writer
+│   ├── auth/                   # GitHub OAuth, sessions, CSRF, break-glass login
+│   ├── catalog/                # Parse, validate and sync apps.yaml
+│   ├── config/                 # Environment configuration
+│   ├── fakegithub/             # Fake GitHub for the dev stack and tests
+│   ├── gh/                     # GitHub App authentication and REST client
+│   ├── health/                 # Status derivation and probes
+│   ├── integrations/           # Optional services set up from the UI (Loki)
+│   ├── loki/                   # Read client for Loki
+│   ├── notify/                 # Notification channels, deliveries, email, webhooks, SMTP
+│   ├── rbac/                   # Principals, permissions, scope evaluation
+│   └── store/                  # All SQL; migrations/ holds the goose migrations
+├── pkg/protocol/               # Agent and server messages
+├── tools/                      # demo-app, fake-github, loadtest
+└── web/src/                    # components/, lib/ (API client and types), pages/
 ```
 
 ---
@@ -216,9 +205,21 @@ Login at http://localhost:5173 using the fake GitHub OAuth picker:
 
 ---
 
-## 7. Guidelines for Milestone 3 (GitHub Workflow Runs)
+### G. Notifications (`internal/notify`)
+- Channels are email recipients or signed webhooks. Each picks events and may be limited to apps, environment names and production or non-production.
+- Events are stored first (`notification_deliveries`) and sent by a worker with retries; a watcher in `internal/api/notifywatch.go` announces state changes only after two looks, records first sightings silently, and holds back flapping.
+- Webhook addresses are validated on save and again when the connection is made (no metadata or link-local addresses, no redirects). SMTP and signing secrets are encrypted at rest and never returned.
+- Payloads never contain log text or secrets.
 
-When implementing or extending Milestone 3 (GitHub Action runs):
+### H. Access requests and first sign-in
+- Someone in an allowed organization who has no role binding signs in and sees "You don't have access yet" (`/api/me` reports `has_access: false`). They are listed under Access > Awaiting access for an admin to grant a role; granting uses the ordinary bindings API.
+
+### I. Apps page features
+- Catalog `tags` (app and environment) feed the tag filter; an app's organization is the owner of its repo; external tools are rows in `custom_apps`, managed by admins and visible to anyone who can see apps.
+
+## 7. Guidelines for GitHub workflow runs
+
+When implementing or extending GitHub Action runs:
 1. **GitHub Integration**:
    - Utilize GitHub App authentication or OAuth token to invoke repository workflows (`workflow_dispatch`).
    - Workflows must accept inputs: `environment`, `command` (`migrate` | `seed`), `correlation_id`, `requested_by`.

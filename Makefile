@@ -4,7 +4,7 @@ GO_NET := docker run --rm --network helmsman-dev_default -v $(CURDIR):/src -w /s
 NODE_RUN := docker run --rm -v $(CURDIR)/web:/w -w /w node:24-alpine
 
 .DEFAULT_GOAL := help
-.PHONY: help up-logs e2e-server backup-test up up-github down logs build test lint e2e seed-dev web-build
+.PHONY: help up-logs e2e-server backup-test up up-github down logs build test lint docs-check e2e seed-dev web-build
 
 help: ## Show targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -68,3 +68,9 @@ seed-dev: ## Seed the dev agent, users and role bindings
 
 server-bundle: ## Zip the files a server needs, for copying by hand (see docs/server-setup.md)
 	bash deploy/server/bundle.sh
+
+lint: ## Go lint with the version CI runs (golangci-lint)
+	docker run --rm -v $(CURDIR):/app -v helmsman-gomod:/go/pkg/mod -w /app golangci/golangci-lint:v2.15.0 golangci-lint run
+
+docs-check: ## Check the docs: titles, relative links and anchors, no em dashes
+	docker run --rm -v $(CURDIR):/src -w /src python:3.13-alpine python3 scripts/check-docs.py

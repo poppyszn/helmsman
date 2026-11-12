@@ -15,7 +15,7 @@ version: 1                      # must be 1
 apps:
   - id: billing-api             # lowercase slug, unique, used in RBAC bindings
     name: Billing API
-    repo: acme-org/billing-api  # owner/repo; the owner selects the GitHub App installation (M3)
+    repo: acme-org/billing-api  # owner/repo; the owner selects the GitHub App installation
     environments:
       - env: staging            # lowercase slug, unique per app. "*" is reserved for bindings
         tier: nonprod           # nonprod | prod
