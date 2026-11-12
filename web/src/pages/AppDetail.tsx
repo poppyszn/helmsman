@@ -85,6 +85,22 @@ export default function AppDetail() {
         </div>
       </div>
 
+      {/* Quick links: the repository, then the shortcuts from the catalog */}
+      <div className="flex flex-wrap items-center gap-2" aria-label="Quick links">
+        {[{ name: "Repository", url: `https://github.com/${data.repo}` }, ...(env.links ?? [])].map((l) => (
+          <a
+            key={`${l.name}-${l.url}`}
+            href={l.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#141418] px-2.5 py-1.5 text-xs font-mono text-sky-400 transition-colors hover:bg-[#1a1a22] hover:text-sky-300"
+          >
+            {l.name}
+            <ExternalLink className="size-3" strokeWidth={1.5} />
+          </a>
+        ))}
+      </div>
+
       {/* Environment Switcher Tabs */}
       <div
         role="tablist"

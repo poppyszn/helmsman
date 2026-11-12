@@ -17,10 +17,18 @@ type Catalog struct {
 
 // App is one application.
 type App struct {
-	ID           string `yaml:"id" json:"id"`
-	Name         string `yaml:"name" json:"name"`
-	Repo         string `yaml:"repo" json:"repo"`
+	ID   string `yaml:"id" json:"id"`
+	Name string `yaml:"name" json:"name"`
+	Repo string `yaml:"repo" json:"repo"`
+	// Links are shown on every environment of the app (dashboards, runbooks, docs).
+	Links        []Link `yaml:"links" json:"links"`
 	Environments []Env  `yaml:"environments" json:"environments"`
+}
+
+// Link is a named shortcut shown on the app page.
+type Link struct {
+	Name string `yaml:"name" json:"name"`
+	URL  string `yaml:"url" json:"url"`
 }
 
 // Env is one deployment of an app.
@@ -35,6 +43,8 @@ type Env struct {
 	GitHubEnvironment string    `yaml:"github_environment" json:"github_environment"`
 	AllowSeed         *bool     `yaml:"allow_seed" json:"allow_seed"`
 	Logs              Logs      `yaml:"logs" json:"logs"`
+	// Links are shortcuts for this environment only. The app's own links come first.
+	Links []Link `yaml:"links" json:"links"`
 }
 
 // Logs says where this environment's history lives besides its container: FaroApp is the app name the

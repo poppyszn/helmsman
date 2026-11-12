@@ -115,12 +115,26 @@ type Container struct {
 	LogDriver      string     `json:"log_driver,omitempty"`
 }
 
+// Discovered is a compose service the agent can see but does not expose. Only names, image and state:
+// never logs, never an action. Sent only when the agent's config turns discovery on.
+type Discovered struct {
+	ComposeProject string `json:"compose_project"`
+	Service        string `json:"service"`
+	Image          string `json:"image,omitempty"`
+	State          string `json:"state,omitempty"`
+}
+
 // Snapshot is the full list of allowed containers.
 type Snapshot struct {
 	DockerOK    bool        `json:"docker_ok"`
 	DockerError string      `json:"docker_error,omitempty"`
 	Containers  []Container `json:"containers"`
+	// Discovered is additive (protocol v1 stays): older servers ignore it.
+	Discovered []Discovered `json:"discovered,omitempty"`
 }
+
+// MaxDiscovered caps how many discovered services one snapshot may carry.
+const MaxDiscovered = 200
 
 // Event kinds.
 const (

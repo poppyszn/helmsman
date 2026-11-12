@@ -48,7 +48,8 @@ export function useMe() {
 }
 
 export type Status = "healthy" | "degraded" | "down" | "unknown";
-export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean; status: Status };
+export type EnvLink = { name: string; url: string };
+export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean; status: Status; links: EnvLink[] };
 export type App = { id: string; name: string; repo: string; environments: Env[] };
 
 export function formatTime(iso: string | null | undefined, tz: string): string {
@@ -232,3 +233,14 @@ export type TimelineEntry = {
   url?: string;
 };
 export type TimelineResp = { entries: TimelineEntry[]; notes: string[]; since: string };
+
+export type AgentContainer = {
+  compose_project: string;
+  service: string;
+  image: string;
+  state: string;
+  exposed: boolean;
+  /** "app/env" entries of the catalog that already use this service. */
+  catalog: string[];
+};
+export type AgentInstall = { agent_yaml: string; compose: string; env: string; commands: string };

@@ -126,6 +126,7 @@ func (m *Manager) sync(ctx context.Context, c *Catalog, rev string) error {
 		for _, e := range a.Environments {
 			allow := e.SeedAllowed()
 			e.AllowSeed = &allow
+			e.Links = append(append([]Link{}, a.Links...), e.Links...)
 			spec, _ := json.Marshal(e)
 			envKeys = append(envKeys, a.ID+"/"+e.Env)
 			if _, err := tx.Exec(ctx, `

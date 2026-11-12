@@ -3,10 +3,14 @@ apps:
   - id: demo-app
     name: Demo App
     repo: acme-org/demo-app
+    links:
+      - { name: Runbook, url: https://wiki.example.com/demo-app }
     environments:
       - env: staging
         tier: nonprod
         agent: dev-agent
+        links:
+          - { name: Dashboards, url: https://grafana.example.com/d/demo-staging }
         container: { compose_project: helmsman-dev, service: demo-app }
         url: http://localhost:9001
         health: { url: http://demo-app:8080/health, via: agent }

@@ -56,6 +56,13 @@ type envView struct {
 	URL       string `json:"url"`
 	AllowSeed bool   `json:"allow_seed"`
 	Status    string `json:"status"`
+	// Links are the app's and the environment's shortcuts (dashboards, runbooks), from the catalog.
+	Links []envLink `json:"links"`
+}
+
+type envLink struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 type appView struct {
@@ -73,12 +80,16 @@ func visibleApp(p rbac.Principal, a store.AppRow) (appView, bool) {
 			continue
 		}
 		var spec struct {
-			URL       string `json:"url"`
-			AllowSeed *bool  `json:"allow_seed"`
+			URL       string    `json:"url"`
+			AllowSeed *bool     `json:"allow_seed"`
+			Links     []envLink `json:"links"`
 		}
 		_ = json.Unmarshal(e.Spec, &spec)
+		if spec.Links == nil {
+			spec.Links = []envLink{}
+		}
 		v.Environments = append(v.Environments, envView{Env: e.Env, Tier: e.Tier, URL: spec.URL,
-			AllowSeed: spec.AllowSeed != nil && *spec.AllowSeed})
+			AllowSeed: spec.AllowSeed != nil && *spec.AllowSeed, Links: spec.Links})
 	}
 	return v, len(v.Environments) > 0
 }

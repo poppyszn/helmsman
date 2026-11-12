@@ -608,3 +608,84 @@ func TestLogsWebSocketRejectsOtherOrigins(t *testing.T) {
 		t.Fatalf("same-origin must work: %v", err)
 	}
 }
+
+func TestAgentInstallBundleMatchesTheComposeFile(t *testing.T) {
+	want, err := os.ReadFile("../../deploy/compose.agent.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := newEnv(t)
+	alice := e.client()
+	alice.login("alice")
+	var out struct {
+		Token   string            `json:"join_token"`
+		Install map[string]string `json:"install"`
+	}
+	if code := alice.json("POST", "/api/admin/agents", map[string]string{"id": "host-1", "name": "Host 1"}, &out); code != 201 {
+		t.Fatalf("create: %d", code)
+	}
+	if out.Install["compose"] != string(want) {
+		t.Fatalf("the install bundle's compose file drifted from deploy/compose.agent.yml:\n%s", out.Install["compose"])
+	}
+	if !strings.Contains(out.Install["env"], "IDP_JOIN_TOKEN="+out.Token) || !strings.Contains(out.Install["agent_yaml"], "discovery: true") ||
+		!strings.Contains(out.Install["agent_yaml"], "idp_url: ws") {
+		t.Fatalf("bundle: %+v", out.Install)
+	}
+	// A new token gets a new bundle.
+	var again struct {
+		Token   string            `json:"join_token"`
+		Install map[string]string `json:"install"`
+	}
+	if code := alice.json("POST", "/api/admin/agents/host-1/join-token", nil, &again); code != 200 || again.Token == out.Token || !strings.Contains(again.Install["env"], again.Token) {
+		t.Fatalf("reissue: %d", code)
+	}
+}
+
+func TestAgentContainersShowWhatIsExposedAndWhatWasDiscovered(t *testing.T) {
+	e := newEnv(t)
+	alice := e.client()
+	alice.login("alice")
+	ctx := context.Background()
+	// agent-1 is in the test catalog (billing/api and ledger/api). It exposes one service and found another.
+	if err := e.st.SaveSnapshot(ctx, "agent-1", protocol.Snapshot{DockerOK: true,
+		Containers: []protocol.Container{{ComposeProject: "billing", Service: "api", ID: "c1", Image: "billing:1", State: "running"}},
+		Discovered: []protocol.Discovered{{ComposeProject: "billing", Service: "api", Image: "dup"}, {ComposeProject: "queue", Service: "redis", Image: "redis:7", State: "running"}}}); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Containers []struct {
+			ComposeProject string   `json:"compose_project"`
+			Service        string   `json:"service"`
+			Exposed        bool     `json:"exposed"`
+			Catalog        []string `json:"catalog"`
+		} `json:"containers"`
+	}
+	if code := alice.json("GET", "/api/admin/agents/agent-1/containers", nil, &out); code != 200 || len(out.Containers) != 2 {
+		t.Fatalf("containers: %d %+v", code, out)
+	}
+	byKey := map[string]bool{}
+	for _, c := range out.Containers {
+		byKey[c.ComposeProject+"/"+c.Service] = c.Exposed
+		if c.ComposeProject == "billing" && (!c.Exposed || len(c.Catalog) == 0) {
+			t.Fatalf("billing/api is exposed and in the catalog: %+v", c)
+		}
+		if c.ComposeProject == "queue" && (c.Exposed || len(c.Catalog) != 0) {
+			t.Fatalf("queue/redis is only discovered: %+v", c)
+		}
+	}
+	if len(byKey) != 2 {
+		t.Fatalf("a service that is both exposed and discovered must appear once: %+v", byKey)
+	}
+	// A later snapshot without discovery clears what was reported.
+	if err := e.st.SaveSnapshot(ctx, "agent-1", protocol.Snapshot{DockerOK: true}); err != nil {
+		t.Fatal(err)
+	}
+	if code := alice.json("GET", "/api/admin/agents/agent-1/containers", nil, &out); code != 200 || len(out.Containers) != 0 {
+		t.Fatalf("after a snapshot without discovery: %d %+v", code, out)
+	}
+	bob := e.client()
+	bob.login("bob")
+	if code := bob.json("GET", "/api/admin/agents/agent-1/containers", nil, nil); code != 403 {
+		t.Fatalf("admin only: %d", code)
+	}
+}

@@ -183,7 +183,80 @@ func (s *Store) SaveSnapshot(ctx context.Context, agentID string, snap protocol.
 			}
 		}
 	}
+	if snap.DockerOK {
+		// Discovery is opt in per agent: an agent that sends none clears what it reported before.
+		if _, err := tx.Exec(ctx, `DELETE FROM agent_discovered WHERE agent_id=$1`, agentID); err != nil {
+			return err
+		}
+		for i, d := range snap.Discovered {
+			if i >= protocol.MaxDiscovered {
+				break
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO agent_discovered (agent_id, compose_project, service, image, state)
+				VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, agentID, d.ComposeProject, d.Service, d.Image, d.State); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
+}
+
+// AgentContainer is a compose service on an agent's host, for the admin page.
+type AgentContainer struct {
+	ComposeProject string `json:"compose_project"`
+	Service        string `json:"service"`
+	Image          string `json:"image"`
+	State          string `json:"state"`
+	Exposed        bool   `json:"exposed"`
+	// Catalog lists the app/env entries that use this service ("app/env"), empty when none does.
+	Catalog []string `json:"catalog"`
+}
+
+// AgentContainers lists what the agent exposes and what it only discovered, with the catalog entries
+// that already use each service.
+func (s *Store) AgentContainers(ctx context.Context, agentID string) ([]AgentContainer, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT compose_project, service, image, state, true FROM container_state WHERE agent_id = $1
+		UNION ALL
+		SELECT d.compose_project, d.service, d.image, d.state, false FROM agent_discovered d
+		 WHERE d.agent_id = $1 AND NOT EXISTS (SELECT 1 FROM container_state c
+		   WHERE c.agent_id = d.agent_id AND c.compose_project = d.compose_project AND c.service = d.service)
+		ORDER BY 1, 2`, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AgentContainer{}
+	for rows.Next() {
+		var c AgentContainer
+		if err := rows.Scan(&c.ComposeProject, &c.Service, &c.Image, &c.State, &c.Exposed); err != nil {
+			return nil, err
+		}
+		c.Catalog = []string{}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	use, err := s.Pool.Query(ctx, `
+		SELECT spec->'container'->>'compose_project', spec->'container'->>'service', app_id || '/' || env
+		  FROM app_envs WHERE agent_id = $1 AND deleted_at IS NULL`, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer use.Close()
+	for use.Next() {
+		var p, svc, ref string
+		if err := use.Scan(&p, &svc, &ref); err != nil {
+			return nil, err
+		}
+		for i := range out {
+			if out[i].ComposeProject == p && out[i].Service == svc {
+				out[i].Catalog = append(out[i].Catalog, ref)
+			}
+		}
+	}
+	return out, use.Err()
 }
 
 // AddEvent stores a container event. Ordering uses server receive time.

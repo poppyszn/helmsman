@@ -331,7 +331,13 @@ func (a *Agent) snapshot(ctx context.Context) protocol.Snapshot {
 	if err != nil {
 		return protocol.Snapshot{DockerOK: false, DockerError: "docker_unavailable", Containers: []protocol.Container{}}
 	}
-	return protocol.Snapshot{DockerOK: true, Containers: cs}
+	snap := protocol.Snapshot{DockerOK: true, Containers: cs}
+	if a.cfg.Discovery {
+		if d, err := a.docker.Discovered(ctx, a.cfg); err == nil {
+			snap.Discovered = d
+		}
+	}
+	return snap
 }
 
 // eventLoop follows the Docker event stream and reconnects every 5 s when it breaks.
