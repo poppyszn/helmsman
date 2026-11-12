@@ -80,6 +80,7 @@ function Grant({ req, roles, apps, onDone }: { req: AccessRequest; roles: Role[]
         Environments
         <select aria-label="Environments" className={select} value={env} onChange={(e) => setEnv(e.target.value)}>
           <option value="*" className="bg-black text-white">All non-production</option>
+          <option value="**" className="bg-black text-white">All, including production</option>
           {envNames.map((n) => (
             <option key={n} value={n} className="bg-black text-white">
               {n} only
@@ -98,7 +99,7 @@ function Grant({ req, roles, apps, onDone }: { req: AccessRequest; roles: Role[]
               </span>
             ))}
           </div>
-          <p className="mt-2 text-xs text-zinc-500">Production is never included in "All non-production": give production access with a separate grant for that environment.</p>
+          <p className="mt-2 text-xs text-zinc-500">"All non-production" never includes production. Choose "All, including production" or a single environment to grant it. Seeding production stays with site admins.</p>
         </div>
       )}
       {err && (

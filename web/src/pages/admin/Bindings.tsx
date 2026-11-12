@@ -148,7 +148,8 @@ export default function Bindings() {
               value={form.env}
               onChange={(e) => setForm({ ...form, env: e.target.value })}
             >
-              <option value="*" className="bg-black text-white">* (all nonprod)</option>
+              <option value="*" className="bg-black text-white">* (all non-prod)</option>
+              <option value="**" className="bg-black text-white">** (all, including prod)</option>
               <option value="staging" className="bg-black text-white">staging</option>
               <option value="prod" className="bg-black text-white">prod</option>
             </select>

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Pencil, Plus, Search, Trash2, Wrench } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
 import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { cn } from "@/lib/utils";
 
 const ORG_KEY = "helmsman.org";
 const remembered = () => {
@@ -20,17 +19,88 @@ const remembered = () => {
   }
 };
 
-function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
+function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
+  tagList: string[];
+  selected: string[];
+  counts: Map<string, number>;
+  ownTags: Set<string>;
+  onToggle: (t: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const box = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const down = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", down);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  const shown = tagList.filter((t) => t.toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      title={title}
-      onClick={onClick}
-      className={cn("rounded-md px-2.5 py-1.5 text-xs font-mono transition-colors cursor-pointer select-none", on ? "bg-[#202028] text-white" : "bg-[#141418] text-zinc-400 hover:text-zinc-200")}
-    >
-      {children}
-    </button>
+    <div className="flex flex-wrap items-center gap-2">
+      <div ref={box} className="relative">
+        <button
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="flex h-9 items-center gap-2 rounded-md bg-[#121215] px-3 text-xs font-mono text-zinc-200 hover:bg-[#141418] cursor-pointer"
+        >
+          <Tag className="size-3.5 text-zinc-500" strokeWidth={1.5} />
+          Tags{selected.length > 0 && <span className="rounded bg-[#202028] px-1.5 text-white">{selected.length}</span>}
+          <ChevronDown className="size-3.5 text-zinc-500" strokeWidth={1.5} />
+        </button>
+        {open && (
+          <div role="group" aria-label="Filter by tag" className="absolute left-0 z-20 mt-1.5 w-64 rounded-lg bg-[#141418] p-2 shadow-xl shadow-black/60">
+            {tagList.length > 8 && (
+              <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a tag..." aria-label="Find a tag" className="mb-2 h-8 bg-black text-xs" />
+            )}
+            <div className="max-h-64 overflow-y-auto">
+              {shown.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={selected.includes(t)}
+                  title={ownTags.has(t) ? "A tag from the catalog" : "An environment name"}
+                  onClick={() => onToggle(t)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-mono text-zinc-300 hover:bg-[#202028] cursor-pointer"
+                >
+                  <span className="flex size-4 items-center justify-center">{selected.includes(t) && <Check className="size-3.5 text-white" strokeWidth={2} />}</span>
+                  <span className="flex-1 truncate">{t}</span>
+                  <span className="text-zinc-500">{counts.get(t)}</span>
+                </button>
+              ))}
+              {shown.length === 0 && <p className="px-2 py-1.5 text-xs text-zinc-500">No tag matches.</p>}
+            </div>
+          </div>
+        )}
+      </div>
+      {selected.map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-label={`Remove tag ${t}`}
+          onClick={() => onToggle(t)}
+          className="flex items-center gap-1.5 rounded-md bg-[#202028] px-2.5 py-1.5 text-xs font-mono text-white cursor-pointer"
+        >
+          {t}
+          <X className="size-3 text-zinc-400" strokeWidth={2} />
+        </button>
+      ))}
+      {selected.length > 0 && (
+        <button type="button" onClick={onClear} className="text-xs text-sky-400 hover:text-sky-300 cursor-pointer">
+          clear
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -152,19 +222,7 @@ export default function Apps() {
       </div>
 
       {tagList.length > 0 && (
-        <div role="group" aria-label="Filter by tag" className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-mono text-zinc-500">tags</span>
-          {tagList.map((t) => (
-            <Chip key={t} on={tags.includes(t)} onClick={() => toggleTag(t)} title={ownTags.has(t) ? "A tag from the catalog" : "An environment name"}>
-              {t} <span className="text-zinc-500">{counts.get(t)}</span>
-            </Chip>
-          ))}
-          {tags.length > 0 && (
-            <button type="button" onClick={() => update((p) => p.delete("tag"))} className="ml-1 text-xs text-sky-400 hover:text-sky-300 cursor-pointer">
-              clear
-            </button>
-          )}
-        </div>
+        <TagFilter tagList={tagList} selected={tags} counts={counts} ownTags={ownTags} onToggle={toggleTag} onClear={() => update((p) => p.delete("tag"))} />
       )}
 
       {filteredApps.length === 0 ? (
@@ -188,15 +246,15 @@ export default function Apps() {
                   </div>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-2.5">
+                <ul aria-label="Environments" className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-4 gap-y-2 rounded-lg bg-[#0e0e12] px-3 py-2.5">
                   {app.environments.map((e) => (
-                    <div key={e.env} className="flex items-center gap-2 rounded-lg bg-[#141418] px-2.5 py-1.5 text-xs transition-colors hover:bg-[#1a1a22]">
-                      <span className="font-mono text-xs font-medium text-zinc-200">{e.env}</span>
-                      <Badge tone={e.tier === "prod" ? "prod" : "default"}>{e.tier}</Badge>
+                    <li key={e.env} className="flex items-center gap-2 text-sm" title={`${e.env} (${e.tier}): ${e.status}`}>
                       <StatusBadge status={e.status} size="sm" showLabel={false} />
-                    </div>
+                      <span className="truncate font-mono text-zinc-200">{e.env}</span>
+                      {e.tier === "prod" && <Badge tone="prod">prod</Badge>}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </Card>
             </Link>
           ))}

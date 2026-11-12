@@ -26,6 +26,8 @@ test.describe("an admin", () => {
 
   test("filters by tag, including environment names, and clears", async ({ page }) => {
     await page.goto("/");
+    // The tags live in a dropdown that stays open while several are picked.
+    await page.getByRole("button", { name: /^Tags/ }).click();
     const tags = page.getByRole("group", { name: "Filter by tag" });
     await tags.getByRole("button", { name: /^ui/ }).click();
     await expect(page).toHaveURL(/tag=ui/);
@@ -34,7 +36,8 @@ test.describe("an admin", () => {
     // Two tags mean both: nothing is both ui and finance.
     await tags.getByRole("button", { name: /^finance/ }).click();
     await expect(page.getByText("no matching apps")).toBeVisible();
-    await tags.getByRole("button", { name: "clear" }).click();
+    await page.getByRole("button", { name: "clear" }).click();
+    await page.getByRole("button", { name: /^Tags/ }).click();
     // An environment name works as a tag: only demo-app has a prod environment.
     await tags.getByRole("button", { name: /^prod/ }).click();
     await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
@@ -69,6 +72,7 @@ test.describe("an admin", () => {
     await expect(bp.getByRole("button", { name: "Add tool" })).toHaveCount(0);
     await expect(bp.getByRole("button", { name: `Edit ${name}` })).toHaveCount(0);
     // The tool's tags take part in the tag filter.
+    await bp.getByRole("button", { name: /^Tags/ }).click();
     await bp.getByRole("group", { name: "Filter by tag" }).getByRole("button", { name: /^ui/ }).click();
     await expect(bp.getByLabel(`Tool ${name}`)).toBeVisible();
     await b.close();
