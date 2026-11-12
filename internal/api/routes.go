@@ -90,6 +90,8 @@ func (s *Server) Routes() []Route {
 		{del, "/api/admin/bindings/{id}", "admin.access", ScopeGlobal, s.handleDeleteBinding, false},
 		{get, "/api/admin/catalog", "admin.access", ScopeGlobal, s.handleCatalogStatus, false},
 		{post, "/api/admin/catalog/reload", "admin.access", ScopeGlobal, s.handleCatalogReload, false},
+		{get, "/api/admin/doctor", "admin.access", ScopeGlobal, s.handleDoctor, false},
+		{get, "/ws/doctor", "admin.access", ScopeGlobal, s.handleDoctorWS, false},
 		{get, "/api/admin/github", "admin.access", ScopeGlobal, s.handleGitHubStatus, false},
 		{post, "/api/admin/github/check", "admin.access", ScopeGlobal, s.handleGitHubCheck, false},
 		{get, "/api/admin/integrations", "admin.access", ScopeGlobal, s.handleIntegrations, false},
