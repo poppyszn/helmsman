@@ -105,7 +105,11 @@ The workflow deploys `main` to a GitHub Environment called `develop` and `produc
    gh variable set HEALTH_URL    --env develop -R $R --body "https://portal.example.com/readyz"
    # only if SSH is not on port 22:  gh secret set SSH_PORT --env develop -R $R --body "2222"
    ```
-   Then delete the private key from your laptop.
+   Then delete the private key from your laptop, and turn the pipeline on. It is off until this repository variable exists, so a repository that has no server yet does not spend runner minutes on deploys that can only fail:
+
+   ```bash
+   gh variable set DEPLOY_ENABLED --body true -R $R
+   ```
 3. Run **Actions > Deploy > Run workflow** on `main`. It builds the image, puts the repository at `/opt/helmsman/helmsman` and **stops at the preflight step** because there is no `.env` yet. That is expected.
 4. `cd /opt/helmsman/helmsman/deploy/server` on the server and continue below.
 
