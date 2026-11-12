@@ -50,7 +50,8 @@ export function useMe() {
 export type Status = "healthy" | "degraded" | "down" | "unknown";
 export type EnvLink = { name: string; url: string };
 export type Env = { env: string; tier: "nonprod" | "prod"; url: string; allow_seed: boolean; status: Status; links: EnvLink[] };
-export type App = { id: string; name: string; repo: string; environments: Env[] };
+export type App = { id: string; name: string; repo: string; org: string; tags: string[]; environments: Env[] };
+export type CustomApp = { id: number; name: string; url: string; description: string; tags: string[]; updated_at: string };
 
 export function formatTime(iso: string | null | undefined, tz: string): string {
   if (!iso) return "never";

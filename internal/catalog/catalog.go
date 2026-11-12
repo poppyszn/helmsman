@@ -20,6 +20,8 @@ type App struct {
 	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
 	Repo string `yaml:"repo" json:"repo"`
+	// Tags label the app (for example api, ui) so the Apps page can filter by them.
+	Tags []string `yaml:"tags" json:"tags"`
 	// Links are shown on every environment of the app (dashboards, runbooks, docs).
 	Links        []Link `yaml:"links" json:"links"`
 	Environments []Env  `yaml:"environments" json:"environments"`
@@ -48,6 +50,8 @@ type Env struct {
 	Logs            Logs  `yaml:"logs" json:"logs"`
 	// Links are shortcuts for this environment only. The app's own links come first.
 	Links []Link `yaml:"links" json:"links"`
+	// Tags label this environment (the app's tags are added to it).
+	Tags []string `yaml:"tags" json:"tags"`
 }
 
 // Logs says where this environment's history lives besides its container: FaroApp is the app name the

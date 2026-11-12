@@ -127,6 +127,7 @@ func (m *Manager) sync(ctx context.Context, c *Catalog, rev string) error {
 			allow := e.SeedAllowed()
 			e.AllowSeed = &allow
 			e.Links = append(append([]Link{}, a.Links...), e.Links...)
+			e.Tags = mergeTags(a.Tags, e.Tags)
 			spec, _ := json.Marshal(e)
 			envKeys = append(envKeys, a.ID+"/"+e.Env)
 			if _, err := tx.Exec(ctx, `
@@ -159,4 +160,17 @@ func (m *Manager) Watch(ctx context.Context, every time.Duration) {
 			_ = m.Reload(ctx, "watcher", false)
 		}
 	}
+}
+
+// mergeTags returns the app's tags followed by the environment's, without repeats.
+func mergeTags(app, env []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, t := range append(append([]string{}, app...), env...) {
+		if !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
+	}
+	return out
 }

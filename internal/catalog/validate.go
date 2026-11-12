@@ -39,6 +39,7 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 			add("%s: repo must be owner/repo", at)
 		}
 		checkLinks(&errs, at+" links", a.Links)
+		checkTags(&errs, at+" tags", a.Tags)
 		if len(a.Environments) == 0 {
 			add("%s: at least one environment is required", at)
 		}
@@ -68,6 +69,7 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 			checkURL(&errs, et+" url", e.URL, true)
 			checkURL(&errs, et+" health.url", e.Health.URL, true)
 			checkLinks(&errs, et+" links", e.Links)
+			checkTags(&errs, et+" tags", e.Tags)
 			if e.Health.Via != "server" && e.Health.Via != "agent" {
 				add("%s: health.via must be server or agent", et)
 			}
@@ -86,6 +88,20 @@ func Validate(c *Catalog, agentExists func(id string) bool) []error {
 		}
 	}
 	return errs
+}
+
+var tagRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,29}$`)
+
+// checkTags keeps tags short and filter friendly: lowercase letters, digits, dot, dash, underscore.
+func checkTags(errs *[]error, field string, tags []string) {
+	if len(tags) > 20 {
+		*errs = append(*errs, fmt.Errorf("%s: at most 20 tags", field))
+	}
+	for i, t := range tags {
+		if !tagRE.MatchString(t) {
+			*errs = append(*errs, fmt.Errorf("%s[%d]: %q must be 1 to 30 lowercase letters, digits, dots, dashes or underscores", field, i, t))
+		}
+	}
 }
 
 // checkLinks keeps the shortcuts tidy: a short name, an http(s) address, and no more than ten.

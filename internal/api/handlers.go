@@ -66,15 +66,20 @@ type envLink struct {
 }
 
 type appView struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Repo         string    `json:"repo"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Repo string `json:"repo"`
+	// Org is the owner of the repository (the GitHub organization), for switching between organizations.
+	Org string `json:"org"`
+	// Tags are the app's and its environments' tags, for filtering.
+	Tags         []string  `json:"tags"`
 	Environments []envView `json:"environments"`
 }
 
 // visibleApp keeps only the envs the principal may see. ok is false when none remain.
 func visibleApp(p rbac.Principal, a store.AppRow) (appView, bool) {
-	v := appView{ID: a.ID, Name: a.Name, Repo: a.Repo, Environments: []envView{}}
+	v := appView{ID: a.ID, Name: a.Name, Repo: a.Repo, Org: strings.SplitN(a.Repo, "/", 2)[0], Tags: []string{}, Environments: []envView{}}
+	tagSeen := map[string]bool{}
 	for _, e := range a.Envs {
 		if !p.Allowed(rbac.AppView, rbac.Scope{AppID: a.ID, Env: e.Env, Tier: e.Tier}) {
 			continue
@@ -83,10 +88,17 @@ func visibleApp(p rbac.Principal, a store.AppRow) (appView, bool) {
 			URL       string    `json:"url"`
 			AllowSeed *bool     `json:"allow_seed"`
 			Links     []envLink `json:"links"`
+			Tags      []string  `json:"tags"`
 		}
 		_ = json.Unmarshal(e.Spec, &spec)
 		if spec.Links == nil {
 			spec.Links = []envLink{}
+		}
+		for _, t := range spec.Tags {
+			if !tagSeen[t] {
+				tagSeen[t] = true
+				v.Tags = append(v.Tags, t)
+			}
 		}
 		v.Environments = append(v.Environments, envView{Env: e.Env, Tier: e.Tier, URL: spec.URL,
 			AllowSeed: spec.AllowSeed != nil && *spec.AllowSeed, Links: spec.Links})

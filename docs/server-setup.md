@@ -324,6 +324,8 @@ Otherwise the repository needs a `workflow_dispatch` workflow that declares exac
 
 ### Access
 
+**External tools.** Under the apps, the **Tools** section holds links to the other tools your team uses (Grafana, Sentry, the wiki). Admins add, edit and remove them; everyone who can see apps sees them, and their tags take part in the tag filter. They are links only: Helmsman never calls them.
+
 On **Access**, bind people and teams to roles. Team subjects are `org/team-slug`. A binding with `env: *` never matches a production environment, so production access is always an explicit binding. Runs start at once by default; set `require_approval: true` on an environment in the catalog to make them wait for a second person with `action.approve` (see `catalog.md`).
 
 ## Day to day

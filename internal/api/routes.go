@@ -60,6 +60,7 @@ func (s *Server) Routes() []Route {
 
 		{get, "/api/me", Authenticated, ScopeNone, s.handleMe, false},
 		{get, "/api/apps", "app.view", ScopeAny, s.handleListApps, false},
+		{get, "/api/custom-apps", "app.view", ScopeAny, s.handleListCustomApps, false},
 		{get, "/api/apps/{app}", "app.view", ScopeApp, s.handleGetApp, false},
 		{get, "/api/apps/{app}/envs/{env}/status", "app.view", ScopeEnv, s.handleEnvStatus, false},
 		{post, "/api/apps/{app}/envs/{env}/restart", "action.restart", ScopeEnv, s.handleRestart, false},
@@ -107,6 +108,9 @@ func (s *Server) Routes() []Route {
 		{put, "/api/admin/notifications/channels/{id}", "admin.access", ScopeGlobal, s.handleChannelUpdate, false},
 		{del, "/api/admin/notifications/channels/{id}", "admin.access", ScopeGlobal, s.handleChannelDelete, false},
 		{post, "/api/admin/notifications/channels/{id}/test", "admin.access", ScopeGlobal, s.handleChannelTest, false},
+		{post, "/api/admin/custom-apps", "admin.access", ScopeGlobal, s.handleCreateCustomApp, false},
+		{put, "/api/admin/custom-apps/{id}", "admin.access", ScopeGlobal, s.handleUpdateCustomApp, false},
+		{del, "/api/admin/custom-apps/{id}", "admin.access", ScopeGlobal, s.handleDeleteCustomApp, false},
 		{get, "/api/admin/audit", "audit.view", ScopeGlobal, s.handleAudit, false},
 
 		{get, "/api/admin/agents", "admin.agents", ScopeGlobal, s.handleListAgents, false},
