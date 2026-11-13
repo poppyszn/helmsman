@@ -370,7 +370,9 @@ function Tools({ tools, total, admin }: { tools: CustomApp[]; total: number; adm
 
   if (total === 0 && !admin) return null;
   return (
-    <section aria-label="Tools" className="space-y-3 pt-2">
+    // Pinned to the bottom of the window, so the tools stay in reach however long the list of apps is. A tall tools
+    // section scrolls inside itself, so the apps always keep most of the screen.
+    <section aria-label="Tools" className="sticky bottom-0 z-10 max-h-[40vh] space-y-3 overflow-y-auto bg-black pb-4 pt-3 shadow-[0_-14px_14px_-6px_#000000]">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Wrench className="size-4 text-zinc-500" strokeWidth={1.5} />
@@ -432,26 +434,24 @@ function Tools({ tools, total, admin }: { tools: CustomApp[]; total: number; adm
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {tools.map((t) => (
-            <div key={t.id} className="group relative rounded-xl bg-[#0a0a0d] p-4 transition-colors hover:bg-[#111116]" aria-label={`Tool ${t.name}`}>
+            <div key={t.id} className="group relative rounded-xl bg-[#0a0a0d] px-4 py-3 transition-colors hover:bg-[#111116]" aria-label={`Tool ${t.name}`}>
               <a href={t.url} target="_blank" rel="noopener noreferrer" className="block focus:outline-none">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-sky-400 group-hover:text-sky-300">{t.name}</span>
+                  <span className="truncate font-semibold text-sky-400 group-hover:text-sky-300">{t.name}</span>
                   <ExternalLink className="size-3.5 shrink-0 text-zinc-500" strokeWidth={1.5} />
                 </div>
-                {t.description && <p className="mt-1 text-sm text-zinc-400">{t.description}</p>}
-                <p className="mt-1 truncate font-mono text-xs text-zinc-600">{new URL(t.url).host}</p>
-                {t.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {t.tags.map((x) => (
-                      <span key={x} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400">
-                        {x}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {t.description && <p className="mt-0.5 truncate text-sm text-zinc-400">{t.description}</p>}
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="truncate font-mono text-xs text-zinc-600">{new URL(t.url).host}</span>
+                  {t.tags.map((x) => (
+                    <span key={x} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400">
+                      {x}
+                    </span>
+                  ))}
+                </div>
               </a>
               {admin && (
-                <div className="absolute right-2 top-9 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <div className="absolute right-2 top-7 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                   <button
                     type="button"
                     title="Edit"
