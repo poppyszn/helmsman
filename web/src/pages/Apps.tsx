@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, ChevronRight, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
 import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
 import { worstStatus } from "@/lib/appstatus";
+import { useDismiss } from "@/lib/useDismiss";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,36 +32,19 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const box = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const down = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
-    };
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", down);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", down);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
+  const close = React.useCallback(() => setOpen(false), []);
+  useDismiss(open, box, close);
   const shown = tagList.filter((t) => t.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div ref={box} className="relative">
-        <button
-          type="button"
-          aria-haspopup="true"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-          className="flex h-9 items-center gap-2 rounded-md bg-[#121215] px-3 text-xs font-mono text-zinc-200 hover:bg-[#141418] cursor-pointer"
-        >
+        <Button type="button" variant="outline" size="sm" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <Tag className="size-3.5 text-zinc-500" strokeWidth={1.5} />
-          Tags{selected.length > 0 && <span className="rounded bg-[#202028] px-1.5 text-white">{selected.length}</span>}
+          Tags{selected.length > 0 && <span className="rounded bg-[#1c1c22] px-1.5 text-white">{selected.length}</span>}
           <ChevronDown className="size-3.5 text-zinc-500" strokeWidth={1.5} />
-        </button>
+        </Button>
         {open && (
-          <div role="group" aria-label="Filter by tag" className="absolute left-0 z-20 mt-1.5 w-64 rounded-lg bg-[#141418] p-2 shadow-xl shadow-black/60">
+          <div role="group" aria-label="Filter by tag" className="absolute left-0 z-20 mt-1.5 w-64 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
             {tagList.length > 8 && (
               <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a tag..." aria-label="Find a tag" className="mb-2 h-8 bg-black text-xs" />
             )}
@@ -72,7 +56,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
                   aria-pressed={selected.includes(t)}
                   title={ownTags.has(t) ? "A tag from the catalog" : "An environment name"}
                   onClick={() => onToggle(t)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-mono text-zinc-300 hover:bg-[#202028] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-mono text-zinc-300 hover:bg-[#141418] cursor-pointer"
                 >
                   <span className="flex size-4 items-center justify-center">{selected.includes(t) && <Check className="size-3.5 text-white" strokeWidth={2} />}</span>
                   <span className="flex-1 truncate">{t}</span>
@@ -90,7 +74,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
           type="button"
           aria-label={`Remove tag ${t}`}
           onClick={() => onToggle(t)}
-          className="flex items-center gap-1.5 rounded-md bg-[#202028] px-2.5 py-1.5 text-xs font-mono text-white cursor-pointer"
+          className="flex items-center gap-1.5 rounded-md bg-[#1c1c22] px-2.5 py-1.5 text-xs font-mono text-white cursor-pointer"
         >
           {t}
           <X className="size-3 text-zinc-400" strokeWidth={2} />
@@ -150,7 +134,7 @@ function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
                 type="button"
                 aria-expanded={open}
                 onClick={() => toggle(repo)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#101014] cursor-pointer"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#141418] cursor-pointer"
               >
                 {open ? <ChevronDown className="size-4 text-zinc-500" strokeWidth={1.5} /> : <ChevronRight className="size-4 text-zinc-500" strokeWidth={1.5} />}
                 <span className="font-mono text-sm">
@@ -177,7 +161,7 @@ function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
                         {app.tags.length > 0 && (
                           <span className="mt-1 flex flex-wrap gap-1.5">
                             {app.tags.map((t) => (
-                              <span key={t} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400 group-hover:bg-[#1a1a22]">
+                              <span key={t} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400 group-hover:bg-[#1c1c22]">
                                 {t}
                               </span>
                             ))}
@@ -370,7 +354,7 @@ function Tools({ tools, total, admin }: { tools: CustomApp[]; total: number; adm
   return (
     // Pinned to the bottom of the window, so the tools stay in reach however long the list of apps is. A tall tools
     // section scrolls inside itself, so the apps always keep most of the screen.
-    <section aria-label="Tools" className="sticky bottom-0 z-10 max-h-[40vh] space-y-3 overflow-y-auto bg-black pb-4 pt-3 shadow-[0_-14px_14px_-6px_#000000]">
+    <section aria-label="Tools" className="sticky bottom-0 z-10 max-h-[40vh] space-y-3 overflow-y-auto bg-black pb-4 pt-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Wrench className="size-4 text-zinc-500" strokeWidth={1.5} />

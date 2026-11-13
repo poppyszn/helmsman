@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Check, ChevronsUpDown } from "lucide-react";
 import type { App } from "@/lib/api";
 import { worstStatus } from "@/lib/appstatus";
+import { useDismiss } from "@/lib/useDismiss";
 import { StatusBadge } from "@/components/StatusBadge";
 
 /**
@@ -13,19 +14,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[]; env: string; tab?: string }) {
   const [open, setOpen] = React.useState(false);
   const box = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const down = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
-    };
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", down);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", down);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
+  const close = React.useCallback(() => setOpen(false), []);
+  useDismiss(open, box, close);
 
   const siblings = apps.filter((a) => a.repo === current.repo).sort((a, b) => a.name.localeCompare(b.name));
   const title = "text-2xl font-bold text-white tracking-tight";
@@ -45,14 +35,14 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
           aria-haspopup="true"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          className={`-ml-2.5 flex items-center gap-2 rounded-lg px-2.5 py-1 text-left tracking-tight transition-colors cursor-pointer hover:bg-[#121215] ${open ? "bg-[#121215]" : ""}`}
+          className={`-ml-2.5 flex items-center gap-2 rounded-lg px-2.5 py-1 text-left tracking-tight transition-colors cursor-pointer hover:bg-[#121215] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 ${open ? "bg-[#121215]" : ""}`}
         >
           {current.name}
           <ChevronsUpDown className="size-4 text-zinc-500" strokeWidth={1.5} />
         </button>
       </h1>
       {open && (
-        <nav aria-label="Apps in this repository" className="absolute left-0 z-20 mt-2 w-80 rounded-xl bg-[#141418] p-2 shadow-xl shadow-black/60">
+        <nav aria-label="Apps in this repository" className="absolute left-0 z-20 mt-2 w-80 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
           <p className="px-2.5 pb-1.5 pt-1 text-xs font-mono text-zinc-500">
             {siblings.length} apps in <span className="text-zinc-300">{current.repo}</span>
           </p>
@@ -65,7 +55,7 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
                     to={target(a)}
                     aria-current={isCurrent ? "page" : undefined}
                     onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus-visible:bg-[#202028] ${isCurrent ? "bg-[#1a1a22]" : "hover:bg-[#1a1a22]"}`}
+                    className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus-visible:bg-[#141418] ${isCurrent ? "bg-[#1c1c22]" : "hover:bg-[#141418]"}`}
                   >
                     <StatusBadge status={worstStatus(a.environments)} size="sm" showLabel={false} />
                     <span className={`flex-1 truncate ${isCurrent ? "font-semibold text-white" : "text-zinc-300"}`}>{a.name}</span>
