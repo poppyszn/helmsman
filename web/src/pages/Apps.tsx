@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
-import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
+import { Check, ChevronDown, ChevronRight, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
+import { api, ApiError, useMe, type App, type CustomApp, type Status } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,109 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
           clear
         </button>
       )}
+    </div>
+  );
+}
+
+const COLLAPSED_KEY = "helmsman.apps.collapsed";
+const readCollapsed = (): string[] => {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+// The worst status wins when a group is rolled up into one dot.
+const worse: Record<Status, number> = { down: 3, degraded: 2, unknown: 1, healthy: 0 };
+
+/** Apps grouped by repository: one section per repo, collapsible, with the group's health rolled up in its header. */
+function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
+  const [collapsed, setCollapsed] = React.useState<string[]>(readCollapsed);
+  const toggle = (repo: string) =>
+    setCollapsed((cur) => {
+      const next = cur.includes(repo) ? cur.filter((r) => r !== repo) : [...cur, repo];
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        /* a private window: the choice just is not remembered */
+      }
+      return next;
+    });
+
+  const byRepo = new Map<string, App[]>();
+  for (const a of apps) byRepo.set(a.repo, [...(byRepo.get(a.repo) ?? []), a]);
+  const repos = [...byRepo.keys()].sort((a, b) => a.localeCompare(b));
+
+  return (
+    <div className="space-y-4">
+      {repos.map((repo) => {
+        const list = byRepo.get(repo)!.sort((a, b) => a.name.localeCompare(b.name));
+        const envs = list.flatMap((a) => a.environments);
+        const status = envs.reduce<Status>((w, e) => (worse[e.status] > worse[w] ? e.status : w), "healthy");
+        const down = envs.filter((e) => e.status === "down").length;
+        const degraded = envs.filter((e) => e.status === "degraded").length;
+        const open = openAll || !collapsed.includes(repo);
+        const [owner, name] = repo.includes("/") ? repo.split("/", 2) : ["", repo];
+        return (
+          <section key={repo} aria-label={`Repository ${repo}`} className="rounded-xl bg-[#0a0a0d] p-2">
+            <h2>
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => toggle(repo)}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#101014] cursor-pointer"
+              >
+                {open ? <ChevronDown className="size-4 text-zinc-500" strokeWidth={1.5} /> : <ChevronRight className="size-4 text-zinc-500" strokeWidth={1.5} />}
+                <span className="font-mono text-sm">
+                  {owner && <span className="text-zinc-500">{owner}/</span>}
+                  <span className="font-semibold text-white">{name}</span>
+                </span>
+                <span className="text-xs font-mono text-zinc-500">
+                  {list.length} {list.length === 1 ? "app" : "apps"}
+                </span>
+                <span className="ml-auto flex items-center gap-3 text-xs font-mono">
+                  {down > 0 && <span className="text-rose-300">{down} down</span>}
+                  {degraded > 0 && <span className="text-amber-300">{degraded} degraded</span>}
+                  <StatusBadge status={status} size="sm" showLabel={false} />
+                </span>
+              </button>
+            </h2>
+            {open && (
+              <ul className="mt-1 space-y-0.5">
+                {list.map((app) => (
+                  <li key={app.id}>
+                    <Link to={`/apps/${app.id}`} className="group flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg px-3 py-2.5 hover:bg-[#141418] focus:outline-none focus-visible:bg-[#141418]">
+                      <span className="min-w-0 sm:w-64">
+                        <span className="block truncate text-sm font-semibold text-white">{app.name}</span>
+                        {app.tags.length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {app.tags.map((t) => (
+                              <span key={t} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400 group-hover:bg-[#1a1a22]">
+                                {t}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                      <ul aria-label="Environments" className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                        {app.environments.map((e) => (
+                          <li key={e.env} className="flex items-center gap-2 text-sm" title={`${e.env} (${e.tier}): ${e.status}`}>
+                            <StatusBadge status={e.status} size="sm" showLabel={false} />
+                            <span className="font-mono text-zinc-200">{e.env}</span>
+                            {e.tier === "prod" && <Badge tone="prod">prod</Badge>}
+                          </li>
+                        ))}
+                      </ul>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -228,37 +331,7 @@ export default function Apps() {
       {filteredApps.length === 0 ? (
         <div className="py-16 text-center text-sm text-zinc-500 font-mono">{filter || tags.length || org ? "no matching apps" : "no apps declared in catalog"}</div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {filteredApps.map((app) => (
-            <Link key={app.id} to={`/apps/${app.id}`} className="block focus:outline-none group">
-              <Card className="hover:bg-[#111116] transition-all duration-150 p-5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-base font-semibold text-white tracking-tight group-hover:text-zinc-100">{app.name}</h2>
-                  <span className="text-xs text-zinc-400 font-mono">{app.repo}</span>
-                </div>
-                {app.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {app.tags.map((t) => (
-                      <span key={t} className="rounded bg-[#141418] px-1.5 py-0.5 text-xs font-mono text-zinc-400">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <ul aria-label="Environments" className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-4 gap-y-2 rounded-lg bg-[#0e0e12] px-3 py-2.5">
-                  {app.environments.map((e) => (
-                    <li key={e.env} className="flex items-center gap-2 text-sm" title={`${e.env} (${e.tier}): ${e.status}`}>
-                      <StatusBadge status={e.status} size="sm" showLabel={false} />
-                      <span className="truncate font-mono text-zinc-200">{e.env}</span>
-                      {e.tier === "prod" && <Badge tone="prod">prod</Badge>}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <RepoGroups apps={filteredApps} openAll={!!filter || tags.length > 0 || tierFilter !== "all"} />
       )}
 
       <Tools tools={shownTools} total={tools.data?.length ?? 0} admin={!!me?.can.admin} />
