@@ -157,6 +157,7 @@ Login at http://localhost:5173 using the fake GitHub OAuth picker:
 - Subjects can be `user` (`subject: user_id`) or `team` (`subject: org/team_slug`).
 - A user's principal is resolved by taking the union of direct bindings and bindings belonging to their GitHub teams.
 - Admins (`users.is_admin = true`) bypass RBAC checks and hold all permissions across all environments.
+- Organization limit: a non-admin only reaches apps whose repository owner is an organization they belong to (`Principal.Orgs`/`AppOrg`), whatever their bindings say. The GitHub admin page lists each organization, who has signed in from it, and a link to grant the OAuth App access.
 
 ### B. Catalog Management (`internal/catalog`)
 - Loaded from `catalog/apps.yaml` on startup, reloaded on change (30s poller) or via admin button `/api/admin/catalog/reload`.

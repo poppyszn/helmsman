@@ -80,3 +80,29 @@ func TestSelfApprovalAndSeed(t *testing.T) {
 		t.Fatal("admins cannot self-approve either")
 	}
 }
+
+func TestOrgLimit(t *testing.T) {
+	p := Principal{
+		Bindings: []Binding{{Permissions: []string{AppView}, AppID: Wildcard, Env: Wildcard}},
+		Orgs:     map[string]bool{"acme-org": true},
+		AppOrg:   map[string]string{"mine": "Acme-Org", "theirs": "other-org"},
+	}
+	stg := Scope{AppID: "mine", Env: "staging", Tier: TierNonprod}
+	if !p.Allowed(AppView, stg) {
+		t.Fatal("an app in the person's organization should be allowed")
+	}
+	if p.Allowed(AppView, Scope{AppID: "theirs", Env: "staging", Tier: TierNonprod}) {
+		t.Fatal("an app in another organization must be refused, even with a wildcard binding")
+	}
+	if p.AllowedAnyEnv(AppView, "theirs") {
+		t.Fatal("list gating must apply the organization limit too")
+	}
+	if !p.AllowedGlobal(AppView) {
+		t.Fatal("global permissions are not limited by organization")
+	}
+	admin := p
+	admin.IsAdmin = true
+	if !admin.Allowed(AppView, Scope{AppID: "theirs", Env: "staging", Tier: TierNonprod}) {
+		t.Fatal("site admins see every organization")
+	}
+}

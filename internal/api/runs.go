@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/poppyszn/helmsman/internal/actions"
@@ -254,15 +257,82 @@ func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"runs": out})
 }
 
-func (s *Server) handleGitHubStatus(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "api_url": s.Cfg.GitHubAppAPIURL, "repos": s.Actions.Checks()})
+// orgView is one organization on the GitHub page: whether people may sign in from it, who has, and how many
+// catalog apps live in it. People signed in is the proof that the OAuth App is approved for the organization.
+type orgView struct {
+	Org     string   `json:"org"`
+	Allowed bool     `json:"allowed"`
+	Members []string `json:"members"`
+	Apps    int      `json:"apps"`
+	// PolicyURL is where an owner approves the OAuth App for the organization.
+	PolicyURL string `json:"policy_url,omitempty"`
+}
+
+// githubOrgs lists the allowed organizations and any other organization that owns a catalog repository.
+func (s *Server) githubOrgs(ctx context.Context) []orgView {
+	byOrg := map[string]*orgView{}
+	get := func(org string) *orgView {
+		k := strings.ToLower(org)
+		if v, ok := byOrg[k]; ok {
+			return v
+		}
+		v := &orgView{Org: org, Members: []string{}}
+		if s.Cfg.GitHubMode == "real" {
+			v.PolicyURL = "https://github.com/organizations/" + org + "/settings/oauth_application_policy"
+		}
+		byOrg[k] = v
+		return v
+	}
+	for _, o := range s.Cfg.AllowedOrgs {
+		get(o).Allowed = true
+	}
+	if apps, err := s.Store.ListApps(ctx); err == nil {
+		for _, a := range apps {
+			if org, _, ok := strings.Cut(a.Repo, "/"); ok {
+				get(org).Apps++
+			}
+		}
+	}
+	if rows, err := s.Store.Pool.Query(ctx, `SELECT o.org, u.login FROM user_orgs o JOIN users u ON u.id=o.user_id WHERE u.disabled_at IS NULL ORDER BY u.login`); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var org, login string
+			if rows.Scan(&org, &login) == nil {
+				v := get(org)
+				v.Members = append(v.Members, login)
+			}
+		}
+	}
+	out := make([]orgView, 0, len(byOrg))
+	for _, v := range byOrg {
+		out = append(out, *v)
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Org) < strings.ToLower(out[j].Org) })
+	return out
+}
+
+// githubAuthorizeURL is the page where a person grants the OAuth App access to their organizations.
+func (s *Server) githubAuthorizeURL() string {
+	if s.Cfg.GitHubMode != "real" || s.Cfg.OAuthClientID == "" {
+		return ""
+	}
+	return "https://github.com/settings/connections/applications/" + s.Cfg.OAuthClientID
+}
+
+func (s *Server) githubPayload(ctx context.Context, checks any) map[string]any {
+	return map[string]any{"mode": s.Cfg.GitHubMode, "api_url": s.Cfg.GitHubAppAPIURL, "repos": checks,
+		"orgs": s.githubOrgs(ctx), "authorize_url": s.githubAuthorizeURL()}
+}
+
+func (s *Server) handleGitHubStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.githubPayload(r.Context(), s.Actions.Checks()))
 }
 
 func (s *Server) handleGitHubCheck(w http.ResponseWriter, r *http.Request) {
 	checks := s.Actions.CheckAll(r.Context())
 	c := rc(r)
 	_ = s.Audit.Write(r.Context(), auditEvent(c.User.Login, "github.check", "github", auth.ClientIP(r), map[string]any{"repos": len(checks)}))
-	writeJSON(w, http.StatusOK, map[string]any{"mode": s.Cfg.GitHubMode, "api_url": s.Cfg.GitHubAppAPIURL, "repos": checks})
+	writeJSON(w, http.StatusOK, s.githubPayload(r.Context(), checks))
 }
 
 func auditEvent(actor, action, target, ip string, d map[string]any) audit.Event {

@@ -2,6 +2,8 @@
 // the database say what they can do.
 package rbac
 
+import "strings"
+
 // Permissions.
 const (
 	AppView       = "app.view"
@@ -45,6 +47,20 @@ type Binding struct {
 type Principal struct {
 	IsAdmin  bool
 	Bindings []Binding
+	// Orgs and AppOrg limit a non-admin to the apps of the organizations they belong to: AppOrg maps an app
+	// to the owner of its repository. When AppOrg is nil (internal checks, tests) no organization limit applies.
+	Orgs   map[string]bool
+	AppOrg map[string]string
+}
+
+// inOrgs reports whether the app may be reached at all: its repository's organization must be one the
+// principal is a member of. An app missing from AppOrg is not limited here.
+func (p Principal) inOrgs(appID string) bool {
+	if p.AppOrg == nil || appID == "" || appID == Wildcard {
+		return true
+	}
+	org, ok := p.AppOrg[appID]
+	return !ok || p.Orgs[strings.ToLower(org)]
 }
 
 // Scope identifies the target of an action.
@@ -72,6 +88,9 @@ func (p Principal) Allowed(perm string, s Scope) bool {
 	if p.IsAdmin {
 		return true
 	}
+	if !p.inOrgs(s.AppID) {
+		return false
+	}
 	// Seeding production is never granted by a role or a binding, whatever it says: only a site admin can,
 	// and even then only where the environment's allow_seed lets it (checked by the caller).
 	if perm == ActionSeed && s.Tier == TierProd {
@@ -97,6 +116,9 @@ func (p Principal) Allowed(perm string, s Scope) bool {
 func (p Principal) AllowedAnyEnv(perm, appID string) bool {
 	if p.IsAdmin {
 		return true
+	}
+	if !p.inOrgs(appID) {
+		return false
 	}
 	for _, b := range p.Bindings {
 		if has(b.Permissions, perm) && (b.AppID == Wildcard || appID == Wildcard || b.AppID == appID) {

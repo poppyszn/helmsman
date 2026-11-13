@@ -193,7 +193,40 @@ func (s *Store) Principal(ctx context.Context, u User) (rbac.Principal, error) {
 		}
 		p.Bindings = append(p.Bindings, b)
 	}
-	return p, rows.Err()
+	if err := rows.Err(); err != nil || u.IsAdmin {
+		return p, err
+	}
+	// A person only reaches apps whose repository belongs to an organization they are in.
+	p.Orgs = map[string]bool{}
+	orgRows, err := s.Pool.Query(ctx, `SELECT lower(org) FROM user_orgs WHERE user_id=$1`, u.ID)
+	if err != nil {
+		return p, err
+	}
+	defer orgRows.Close()
+	for orgRows.Next() {
+		var o string
+		if err := orgRows.Scan(&o); err != nil {
+			return p, err
+		}
+		p.Orgs[o] = true
+	}
+	if err := orgRows.Err(); err != nil {
+		return p, err
+	}
+	appRows, err := s.Pool.Query(ctx, `SELECT id, split_part(repo, '/', 1) FROM apps WHERE deleted_at IS NULL`)
+	if err != nil {
+		return p, err
+	}
+	defer appRows.Close()
+	p.AppOrg = map[string]string{}
+	for appRows.Next() {
+		var id, org string
+		if err := appRows.Scan(&id, &org); err != nil {
+			return p, err
+		}
+		p.AppOrg[id] = org
+	}
+	return p, appRows.Err()
 }
 
 // UpsertBreakglass returns the local emergency admin user, creating it on first use. It has no
