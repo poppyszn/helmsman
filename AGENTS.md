@@ -202,6 +202,7 @@ Login at http://localhost:5173 using the fake GitHub OAuth picker:
   - **Typography Floor**: No sub-12px microtext (`text-[10px]`, `text-[11px]` are forbidden). Base body is 14-15px; telemetry metrics are 24px bold monospace.
   - **Single Calm Status Indicators**: Use `StatusBadge` (8px glowing dot) rather than repetitive, flashing "LIVE" markers.
   - **Explicit Action Icons**: Toggle buttons must show the action they will perform (e.g. Pause icon when streaming, Play icon when paused to resume).
+  - **Calm Motion**: Pages fade up, popovers pop in, sections fade open, loading uses skeletons. Only opacity and transform, 120 to 220ms, nothing looping, and `prefers-reduced-motion` turns it all off (`docs/design-system.md` section 5).
 - Refer to `docs/design-system.md` for full component specifications, surface elevation tokens, and quality gates (`cd web && npm run typecheck && npm run lint`).
 
 ---

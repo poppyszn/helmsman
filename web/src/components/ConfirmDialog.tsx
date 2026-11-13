@@ -47,7 +47,7 @@ export function ConfirmDialog({
         e.preventDefault();
         if (!busy) onCancel();
       }}
-      className="m-auto w-full max-w-md rounded-xl bg-[#0c0c10] p-6 text-zinc-100 shadow-2xl backdrop:bg-black/80 backdrop:backdrop-blur-sm"
+      className="m-auto w-full max-w-md animate-pop-in rounded-xl bg-[#0c0c10] p-6 text-zinc-100 shadow-2xl backdrop:animate-fade-in backdrop:bg-black/80 backdrop:backdrop-blur-sm"
     >
       <div>
         <h2 className="text-base font-semibold text-white tracking-tight">{title}</h2>

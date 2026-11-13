@@ -45,8 +45,11 @@ export default function AppDetail() {
 
   if (isPending) {
     return (
-      <div className="py-20 text-xs text-zinc-500 font-mono">
-        loading...
+      <div className="space-y-4" aria-busy="true" aria-label="Loading app">
+        <div className="h-4 w-40 animate-pulse rounded bg-[#0a0a0d]" />
+        <div className="h-8 w-64 animate-pulse rounded bg-[#0a0a0d]" />
+        <div className="h-24 animate-pulse rounded-xl bg-[#0a0a0d]" />
+        <div className="h-64 animate-pulse rounded-xl bg-[#0a0a0d]" />
       </div>
     );
   }
@@ -337,6 +340,7 @@ function EnvInspector({ app, env, tab: activeTab, onTab: setActiveTab }: { app: 
           ))}
         </div>
 
+        <div key={`${env.env}:${activeTab}`} className="animate-fade-in">
         {activeTab === "timeline" ? (
           <TimelinePanel app={app} env={env.env} tz={tz} />
         ) : activeTab === "runs" ? (
@@ -417,6 +421,7 @@ function EnvInspector({ app, env, tab: activeTab, onTab: setActiveTab }: { app: 
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Confirm Dialog */}

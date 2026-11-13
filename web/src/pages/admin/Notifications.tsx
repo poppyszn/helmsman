@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Loader2, Mail, Webhook } from "lucide-react";
+import { Bell, ChevronDown, Loader2, Mail, Webhook } from "lucide-react";
 import { api, ApiError, formatTime, useMe, type App, type NotificationsResp, type NotifyChannel, type NotifyEventType, type SmtpStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,19 +65,32 @@ function SmtpCard({ smtp, hasEmailChannels }: { smtp: SmtpStatus; hasEmailChanne
     },
   });
   const busy = save.isPending || test.isPending || remove.isPending;
+  // Closed until it is needed: the settings are rarely touched, so the page leads with the channels.
+  const [open, setOpen] = useState(false);
 
   return (
-    <Card role="region" aria-label="Mail server (SMTP)" className="space-y-5 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Mail className="mt-0.5 size-5 text-zinc-400" strokeWidth={1.5} />
-          <div>
-            <h2 className="text-base font-semibold text-white">Mail server (SMTP)</h2>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-400">Needed only for email channels. Use any SMTP service: your provider's, a relay, or your own server. The password is stored encrypted and is never shown again.</p>
-          </div>
-        </div>
-        {smtp.configured ? <Badge tone="ok">set up</Badge> : <Badge tone={hasEmailChannels ? "warn" : "default"}>{hasEmailChannels ? "needed by an email channel" : "not set up"}</Badge>}
-      </div>
+    <Card role="region" aria-label="Mail server (SMTP)" className="p-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl px-6 py-4 text-left transition-colors hover:bg-[#101014] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
+      >
+        <span className="flex items-center gap-3">
+          <Mail className="size-5 text-zinc-400" strokeWidth={1.5} />
+          <span>
+            <span className="block text-base font-semibold text-white">Mail server (SMTP)</span>
+            <span className="block text-sm text-zinc-400">Needed only for email channels.</span>
+          </span>
+        </span>
+        <span className="flex items-center gap-3">
+          {smtp.configured ? <Badge tone="ok">set up</Badge> : <Badge tone={hasEmailChannels ? "warn" : "default"}>{hasEmailChannels ? "needed by an email channel" : "not set up"}</Badge>}
+          <ChevronDown className={`size-4 text-zinc-500 transition-transform duration-150 ${open ? "" : "-rotate-90"}`} strokeWidth={1.5} />
+        </span>
+      </button>
+      {open && (
+      <div className="animate-fade-in space-y-5 px-6 pb-6">
+      <p className="max-w-2xl text-sm text-zinc-400">Use any SMTP service: your provider's, a relay, or your own server. The password is stored encrypted and is never shown again.</p>
       <form
         className="grid gap-3.5 sm:grid-cols-2"
         onSubmit={(e) => {
@@ -145,6 +158,8 @@ function SmtpCard({ smtp, hasEmailChannels }: { smtp: SmtpStatus; hasEmailChanne
           {msg.text}
         </p>
       )}
+      </div>
+      )}
     </Card>
   );
 }
@@ -182,7 +197,7 @@ function ChannelForm({ types, draft, onDone }: { types: NotifyEventType[]; draft
 
   return (
     <form
-      className="grid gap-3.5 rounded-lg bg-[#101014] p-5 sm:grid-cols-2"
+      className="grid animate-fade-in gap-3.5 rounded-lg bg-[#101014] p-5 sm:grid-cols-2"
       aria-label={editing ? "Edit channel" : "New channel"}
       onSubmit={(e) => {
         e.preventDefault();
@@ -399,15 +414,27 @@ export default function Notifications() {
             never contain log text.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setSecret(null);
-            setForm(blank(events));
-          }}
-        >
-          <Bell className="size-4" strokeWidth={1.5} />
-          Add channel
-        </Button>
+        <div className="flex gap-2.5">
+          <Button
+            onClick={() => {
+              setSecret(null);
+              setForm(blank(events));
+            }}
+          >
+            <Bell className="size-4" strokeWidth={1.5} />
+            Add channel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSecret(null);
+              setForm({ ...blank(events), kind: "webhook" });
+            }}
+          >
+            <Webhook className="size-4" strokeWidth={1.5} />
+            Add webhook
+          </Button>
+        </div>
       </div>
 
       {secret && (
@@ -421,7 +448,7 @@ export default function Notifications() {
 
       {form && (
         <ChannelForm
-          key={form.id ?? "new"}
+          key={form.id ?? `new-${form.kind}`}
           types={events}
           draft={form}
           onDone={(s) => {
@@ -434,7 +461,7 @@ export default function Notifications() {
       <Card className="p-0" aria-label="Channels">
         <h2 className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">Channels</h2>
         {channels.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-zinc-500">No channel yet. Add one to start receiving notifications.</p>
+          <p className="px-5 pb-5 text-sm text-zinc-500">No channel yet. Add an email channel or a webhook to start receiving notifications.</p>
         ) : (
           <ul className="divide-y divide-zinc-900/60">
             {channels.map((c) => (

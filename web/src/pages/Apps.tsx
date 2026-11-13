@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronRight, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
 import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
 import { worstStatus } from "@/lib/appstatus";
 import { menuKeyDown, useDismiss, useFocusItem } from "@/lib/useDismiss";
@@ -45,7 +45,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
           <ChevronDown className="size-3.5 text-zinc-500" strokeWidth={1.5} />
         </Button>
         {open && (
-          <div role="group" aria-label="Filter by tag" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-1.5 w-64 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
+          <div role="group" aria-label="Filter by tag" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-1.5 w-64 origin-top-left animate-pop-in rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
             {tagList.length > 8 && (
               <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a tag..." aria-label="Find a tag" className="mb-2 h-8 bg-black text-xs" />
             )}
@@ -138,7 +138,7 @@ function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
                 onClick={() => toggle(repo)}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#141418] cursor-pointer"
               >
-                {open ? <ChevronDown className="size-4 text-zinc-500" strokeWidth={1.5} /> : <ChevronRight className="size-4 text-zinc-500" strokeWidth={1.5} />}
+                <ChevronDown className={`size-4 text-zinc-500 transition-transform duration-150 ${open ? "" : "-rotate-90"}`} strokeWidth={1.5} />
                 <span className="font-mono text-sm">
                   {owner && <span className="text-zinc-500">{owner}/</span>}
                   <span className="font-semibold text-white">{name}</span>
@@ -154,7 +154,7 @@ function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
               </button>
             </h2>
             {open && (
-              <ul className="mt-1 space-y-0.5">
+              <ul className="mt-1 animate-fade-in space-y-0.5">
                 {list.map((app) => (
                   <li key={app.id}>
                     <Link to={`/apps/${app.id}`} className="group flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg px-3 py-2.5 hover:bg-[#141418] focus:outline-none focus-visible:bg-[#141418]">
@@ -231,7 +231,16 @@ export default function Apps() {
     });
 
   if (isPending) {
-    return <div className="py-20 text-xs text-zinc-500 font-mono">loading apps...</div>;
+    return (
+      <div className="space-y-6" aria-busy="true" aria-label="Loading apps">
+        <div className="h-8 w-48 animate-pulse rounded bg-[#0a0a0d]" />
+        <div className="space-y-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl bg-[#0a0a0d]" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {

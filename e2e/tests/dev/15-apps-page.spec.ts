@@ -82,8 +82,8 @@ test.describe("an admin", () => {
     await expect(page).toHaveURL(/\/apps\/static-demo\/staging\/logs$/);
 
     // Escape closes the menu and gives the keyboard back to the title.
-    await title.focus();
-    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Static Demo" })).toBeVisible();
+    await title.press("Enter");
     await expect(menu).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);

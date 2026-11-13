@@ -43,7 +43,7 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
         </button>
       </h1>
       {open && (
-        <nav aria-label="Apps in this repository" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-2 w-80 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
+        <nav aria-label="Apps in this repository" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-2 w-80 origin-top-left animate-pop-in rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
           <p className="px-2.5 pb-1.5 pt-1 text-xs font-mono text-zinc-500">
             {siblings.length} apps in <span className="text-zinc-300">{current.repo}</span>
           </p>
