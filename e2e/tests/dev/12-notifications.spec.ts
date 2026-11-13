@@ -147,3 +147,15 @@ test.describe("a developer", () => {
     expect((await page.request.get("/api/admin/notifications")).status()).toBe(403);
   });
 });
+
+test.describe("an admin choosing a webhook", () => {
+  test.use({ storageState: authFile("alice") });
+
+  test("a webhook can be started directly, without finding it in the type list", async ({ page }) => {
+    await page.goto("/admin/notifications");
+    await page.getByRole("button", { name: "Add webhook" }).click();
+    const form = page.getByRole("form", { name: "New channel" });
+    await expect(form.getByLabel("Type")).toHaveValue("webhook");
+    await expect(form.getByLabel("Webhook address")).toBeVisible();
+  });
+});

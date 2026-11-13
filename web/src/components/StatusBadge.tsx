@@ -48,7 +48,7 @@ export function StatusBadge({
         size === "sm" ? "text-xs" : "text-xs"
       )}
     >
-      <span className={cn("inline-block h-2 w-2 rounded-full shrink-0", config.dotColor)} />
+      <span className={cn("inline-block h-2 w-2 rounded-full shrink-0 transition-[background-color,box-shadow] duration-500", config.dotColor)} />
       {showLabel && <span className={config.textColor}>{config.label}</span>}
     </span>
   );

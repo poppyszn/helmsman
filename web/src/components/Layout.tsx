@@ -43,6 +43,12 @@ function breadcrumbs(pathname: string): Crumb[] {
   return [home, ...parts.map((p, i) => ({ label: p, ...(i < parts.length - 1 ? { to: "/" + parts.slice(0, i + 1).join("/") } : {}) }))];
 }
 
+/** One key per page: every path is its own page, except the views of one app (/apps/<app>/<env>/<tab>). */
+const pageKey = (path: string) => {
+  const m = /^\/apps\/([^/]+)/.exec(path);
+  return m ? `/apps/${m[1]}` : path;
+};
+
 export default function Layout() {
   const { data: me } = useMe();
   const qc = useQueryClient();
@@ -236,7 +242,10 @@ export default function Layout() {
 
         {/* Page Content */}
         <main className="flex-1 max-w-6xl w-full">
-          <Outlet />
+          {/* A new page fades up. Moving between environments or tabs inside one app keeps the page, so the key is the app. */}
+          <div key={pageKey(location.pathname)} className="animate-page-in">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

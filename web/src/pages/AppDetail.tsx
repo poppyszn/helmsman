@@ -19,6 +19,7 @@ import { LogHistory } from "@/components/LogHistory";
 import { RunsPanel } from "@/components/RunsPanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
+import { AppTitle } from "@/components/AppTitle";
 
 type Tab = "logs" | "timeline" | "events" | "runs" | "deployments";
 const TABS: Tab[] = ["logs", "timeline", "events", "runs", "deployments"];
@@ -39,11 +40,16 @@ export default function AppDetail() {
     queryFn: () => api(`/api/apps/${appId}`),
     refetchInterval: 15_000,
   });
+  // The same list the Apps page uses (shared cache), for the switcher between apps of one repository.
+  const all = useQuery<App[]>({ queryKey: ["apps"], queryFn: () => api("/api/apps"), staleTime: 15_000 });
 
   if (isPending) {
     return (
-      <div className="py-20 text-xs text-zinc-500 font-mono">
-        loading...
+      <div className="space-y-4" aria-busy="true" aria-label="Loading app">
+        <div className="h-4 w-40 animate-pulse rounded bg-[#0a0a0d]" />
+        <div className="h-8 w-64 animate-pulse rounded bg-[#0a0a0d]" />
+        <div className="h-24 animate-pulse rounded-xl bg-[#0a0a0d]" />
+        <div className="h-64 animate-pulse rounded-xl bg-[#0a0a0d]" />
       </div>
     );
   }
@@ -71,13 +77,19 @@ export default function AppDetail() {
 
   return (
     <div className="space-y-6">
-      {/* App Header */}
-      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-        <div className="flex items-baseline gap-3.5 flex-wrap">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            {data.name}
-          </h1>
-          <span className="text-sm text-zinc-400 font-mono">{data.repo}</span>
+      {/* App Header: the repository above the title, which is also the switcher between its apps */}
+      <div className="space-y-2">
+        <p className="font-mono text-sm text-zinc-500">
+          {data.repo.includes("/") ? (
+            <>
+              {data.repo.split("/")[0]}/<span className="text-zinc-300">{data.repo.split("/")[1]}</span>
+            </>
+          ) : (
+            data.repo
+          )}
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <AppTitle current={data} apps={all.data ?? []} env={env.env} tab={tabParam} />
           {env.url && (
             <a
               href={env.url}
@@ -328,6 +340,7 @@ function EnvInspector({ app, env, tab: activeTab, onTab: setActiveTab }: { app: 
           ))}
         </div>
 
+        <div key={`${env.env}:${activeTab}`} className="animate-fade-in">
         {activeTab === "timeline" ? (
           <TimelinePanel app={app} env={env.env} tz={tz} />
         ) : activeTab === "runs" ? (
@@ -408,6 +421,7 @@ function EnvInspector({ app, env, tab: activeTab, onTab: setActiveTab }: { app: 
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Confirm Dialog */}

@@ -80,7 +80,31 @@ Helmsman uses `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto` for genera
 
 ---
 
-## 5. Standard Component Guidelines
+## 5. Motion
+
+Motion makes a change easy to follow. It never decorates, and it never gets in the way of work. The rule of thumb: if a user would notice the animation more than the change, it is too much.
+
+| Where | How | Utility |
+|---|---|---|
+| **A new page** | Fades up 6px in 220ms. Moving between the environments or tabs of one app keeps the page (the key is the app), so only the panel under the tabs fades. | `animate-page-in` on the `main` wrapper (`Layout.tsx`), `animate-fade-in` on tab panels |
+| **Popovers and menus** | Open from their corner in 130ms: a 4px drop and a 2% scale. Close without animation, so a menu never blocks the next click. | `animate-pop-in origin-top-left` |
+| **Dialogs and the command palette** | The backdrop fades, the panel pops in. | `animate-fade-in`, `animate-pop-in`, `backdrop:animate-fade-in` |
+| **Expanding sections** | The content fades in and the chevron turns (down open, right closed). One chevron that rotates, never two icons that swap. | `animate-fade-in`, `transition-transform duration-150 -rotate-90` |
+| **Loading** | A skeleton shaped like the content, not a "loading..." line, so the page does not jump when data arrives. Skeletons pulse once and quietly. | `animate-pulse rounded-xl bg-[#0a0a0d]`, `aria-busy="true"` |
+| **State changes** | Colours ease in on hover, focus and status changes. The status dot eases between colours over 500ms. | `transition-colors`, `transition-[background-color,box-shadow] duration-500` |
+
+Rules:
+
+1. **Short.** 120 to 220ms for entrances, 150ms for hover and toggles, 500ms only for a status dot changing colour. Never longer than that.
+2. **Only opacity and transform.** Do not animate width, height, top or left, which make the page re-layout and stutter.
+3. **No looping or attention-seeking motion.** This follows rule 4 of section 2: no pulsing beacons, bouncing badges or spinners that stay after the work is done. A spinner is allowed only while a request is running.
+4. **Respect the user's setting.** `index.css` turns every animation and transition to near zero under `prefers-reduced-motion: reduce`. Do not add motion that bypasses it, and never put a state only in an animation.
+5. **Tokens live in `index.css`.** Add a new keyframe there with a `--animate-*` name in `@theme`, not inline in a component. Do not add an animation library.
+6. **Do not animate things that refresh on a timer.** A list that refetches every 15 seconds must not fade or slide each time. Animate on mount, not on data.
+
+---
+
+## 6. Standard Component Guidelines
 
 ### A. Buttons (`components/ui/button.tsx`)
 - **Default size**: `h-9 px-4 text-xs font-medium` (comfortable 36px touch target).
@@ -138,7 +162,7 @@ Helmsman uses `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto` for genera
 
 ---
 
-## 6. Verification & Quality Gates
+## 7. Verification & Quality Gates
 
 Before declaring any frontend work complete, agents must verify:
 

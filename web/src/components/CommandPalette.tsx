@@ -171,11 +171,11 @@ function CommandPaletteModal({ onClose }: { onClose: () => void }) {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/85 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center pt-24 px-4 bg-black/85 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-xl bg-[#0c0c10] shadow-2xl"
+        className="w-full max-w-lg animate-pop-in overflow-hidden rounded-xl bg-[#0c0c10] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-900/80">
