@@ -2,7 +2,8 @@ import * as React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, ChevronRight, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
-import { api, ApiError, useMe, type App, type CustomApp, type Status } from "@/lib/api";
+import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
+import { worstStatus } from "@/lib/appstatus";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,9 +115,6 @@ const readCollapsed = (): string[] => {
   }
 };
 
-// The worst status wins when a group is rolled up into one dot.
-const worse: Record<Status, number> = { down: 3, degraded: 2, unknown: 1, healthy: 0 };
-
 /** Apps grouped by repository: one section per repo, collapsible, with the group's health rolled up in its header. */
 function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
   const [collapsed, setCollapsed] = React.useState<string[]>(readCollapsed);
@@ -140,7 +138,7 @@ function RepoGroups({ apps, openAll }: { apps: App[]; openAll: boolean }) {
       {repos.map((repo) => {
         const list = byRepo.get(repo)!.sort((a, b) => a.name.localeCompare(b.name));
         const envs = list.flatMap((a) => a.environments);
-        const status = envs.reduce<Status>((w, e) => (worse[e.status] > worse[w] ? e.status : w), "healthy");
+        const status = worstStatus(envs);
         const down = envs.filter((e) => e.status === "down").length;
         const degraded = envs.filter((e) => e.status === "degraded").length;
         const open = openAll || !collapsed.includes(repo);

@@ -19,6 +19,7 @@ import { LogHistory } from "@/components/LogHistory";
 import { RunsPanel } from "@/components/RunsPanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
+import { AppSwitcher } from "@/components/AppSwitcher";
 
 type Tab = "logs" | "timeline" | "events" | "runs" | "deployments";
 const TABS: Tab[] = ["logs", "timeline", "events", "runs", "deployments"];
@@ -39,6 +40,8 @@ export default function AppDetail() {
     queryFn: () => api(`/api/apps/${appId}`),
     refetchInterval: 15_000,
   });
+  // The same list the Apps page uses (shared cache), for the switcher between apps of one repository.
+  const all = useQuery<App[]>({ queryKey: ["apps"], queryFn: () => api("/api/apps"), staleTime: 15_000 });
 
   if (isPending) {
     return (
@@ -78,6 +81,7 @@ export default function AppDetail() {
             {data.name}
           </h1>
           <span className="text-sm text-zinc-400 font-mono">{data.repo}</span>
+          <AppSwitcher current={data} apps={all.data ?? []} env={env.env} tab={tabParam} />
           {env.url && (
             <a
               href={env.url}
