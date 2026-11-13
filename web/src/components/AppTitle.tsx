@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Check, ChevronsUpDown } from "lucide-react";
 import type { App } from "@/lib/api";
 import { worstStatus } from "@/lib/appstatus";
-import { useDismiss } from "@/lib/useDismiss";
+import { menuKeyDown, useDismiss, useFocusItem } from "@/lib/useDismiss";
 import { StatusBadge } from "@/components/StatusBadge";
 
 /**
@@ -16,6 +16,7 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
   const box = React.useRef<HTMLDivElement>(null);
   const close = React.useCallback(() => setOpen(false), []);
   useDismiss(open, box, close);
+  useFocusItem(open, box);
 
   const siblings = apps.filter((a) => a.repo === current.repo).sort((a, b) => a.name.localeCompare(b.name));
   const title = "text-2xl font-bold text-white tracking-tight";
@@ -42,7 +43,7 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
         </button>
       </h1>
       {open && (
-        <nav aria-label="Apps in this repository" className="absolute left-0 z-20 mt-2 w-80 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
+        <nav aria-label="Apps in this repository" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-2 w-80 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
           <p className="px-2.5 pb-1.5 pt-1 text-xs font-mono text-zinc-500">
             {siblings.length} apps in <span className="text-zinc-300">{current.repo}</span>
           </p>
@@ -53,6 +54,7 @@ export function AppTitle({ current, apps, env, tab }: { current: App; apps: App[
                 <li key={a.id}>
                   <Link
                     to={target(a)}
+                    data-menu-item
                     aria-current={isCurrent ? "page" : undefined}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus-visible:bg-[#141418] ${isCurrent ? "bg-[#1c1c22]" : "hover:bg-[#141418]"}`}

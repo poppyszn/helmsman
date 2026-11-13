@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, ChevronRight, ExternalLink, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from "lucide-react";
 import { api, ApiError, useMe, type App, type CustomApp } from "@/lib/api";
 import { worstStatus } from "@/lib/appstatus";
-import { useDismiss } from "@/lib/useDismiss";
+import { menuKeyDown, useDismiss, useFocusItem } from "@/lib/useDismiss";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
   const box = React.useRef<HTMLDivElement>(null);
   const close = React.useCallback(() => setOpen(false), []);
   useDismiss(open, box, close);
+  useFocusItem(open, box);
   const shown = tagList.filter((t) => t.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -44,7 +45,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
           <ChevronDown className="size-3.5 text-zinc-500" strokeWidth={1.5} />
         </Button>
         {open && (
-          <div role="group" aria-label="Filter by tag" className="absolute left-0 z-20 mt-1.5 w-64 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
+          <div role="group" aria-label="Filter by tag" onKeyDown={menuKeyDown} className="absolute left-0 z-20 mt-1.5 w-64 rounded-xl bg-[#0c0c10] p-2 shadow-2xl">
             {tagList.length > 8 && (
               <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a tag..." aria-label="Find a tag" className="mb-2 h-8 bg-black text-xs" />
             )}
@@ -53,6 +54,7 @@ function TagFilter({ tagList, selected, counts, ownTags, onToggle, onClear }: {
                 <button
                   key={t}
                   type="button"
+                  data-menu-item
                   aria-pressed={selected.includes(t)}
                   title={ownTags.has(t) ? "A tag from the catalog" : "An environment name"}
                   onClick={() => onToggle(t)}

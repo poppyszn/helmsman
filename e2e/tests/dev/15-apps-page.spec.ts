@@ -65,6 +65,43 @@ test.describe("an admin", () => {
     await expect(page.getByRole("heading", { name: "Ledger Demo" }).getByRole("button")).toHaveCount(0);
   });
 
+  test("the switcher and the tag menu work from the keyboard", async ({ page }) => {
+    await page.goto("/apps/demo-app/staging/logs");
+    const title = page.getByRole("heading").getByRole("button");
+    await title.focus();
+    await page.keyboard.press("Enter");
+    // Opening puts the keyboard on the current app; the arrows move, Enter follows the link.
+    const menu = page.getByRole("navigation", { name: "Apps in this repository" });
+    await expect(menu.getByRole("link", { name: /Demo App/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("link", { name: /Static Demo/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("link", { name: /Demo App/ })).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/apps\/static-demo\/staging\/logs$/);
+
+    // Escape closes the menu and gives the keyboard back to the title.
+    await title.focus();
+    await page.keyboard.press("Enter");
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(title).toBeFocused();
+
+    // The tag menu: open it, move with the arrows, toggle with the space bar.
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Tags/ }).focus();
+    await page.keyboard.press("Enter");
+    const tags = page.getByRole("group", { name: "Filter by tag" });
+    await expect(tags.getByRole("button").first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/tag=/);
+    await page.keyboard.press("Escape");
+    await expect(tags).toHaveCount(0);
+  });
+
   test("when the other app lacks the environment, the switch lands on its first one", async ({ page }) => {
     await page.goto("/apps/demo-app/prod");
     await page.getByRole("heading").getByRole("button").click();
