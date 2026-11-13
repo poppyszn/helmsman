@@ -19,7 +19,7 @@ import { LogHistory } from "@/components/LogHistory";
 import { RunsPanel } from "@/components/RunsPanel";
 import { DeploymentsPanel } from "@/components/DeploymentsPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
-import { AppSwitcher } from "@/components/AppSwitcher";
+import { AppTitle } from "@/components/AppTitle";
 
 type Tab = "logs" | "timeline" | "events" | "runs" | "deployments";
 const TABS: Tab[] = ["logs", "timeline", "events", "runs", "deployments"];
@@ -74,14 +74,19 @@ export default function AppDetail() {
 
   return (
     <div className="space-y-6">
-      {/* App Header */}
-      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-        <div className="flex items-baseline gap-3.5 flex-wrap">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            {data.name}
-          </h1>
-          <span className="text-sm text-zinc-400 font-mono">{data.repo}</span>
-          <AppSwitcher current={data} apps={all.data ?? []} env={env.env} tab={tabParam} />
+      {/* App Header: the repository above the title, which is also the switcher between its apps */}
+      <div className="space-y-2">
+        <p className="font-mono text-sm text-zinc-500">
+          {data.repo.includes("/") ? (
+            <>
+              {data.repo.split("/")[0]}/<span className="text-zinc-300">{data.repo.split("/")[1]}</span>
+            </>
+          ) : (
+            data.repo
+          )}
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <AppTitle current={data} apps={all.data ?? []} env={env.env} tab={tabParam} />
           {env.url && (
             <a
               href={env.url}

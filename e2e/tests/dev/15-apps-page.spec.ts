@@ -48,7 +48,7 @@ test.describe("an admin", () => {
 
   test("switches to another app of the same repository without going back to the list", async ({ page }) => {
     await page.goto("/apps/demo-app/staging/logs");
-    await page.getByRole("button", { name: /^Switch app/ }).click();
+    await page.getByRole("heading").getByRole("button").click();
     const menu = page.getByRole("navigation", { name: "Apps in this repository" });
     // Only the apps of this repository are offered, and the current one is marked.
     await expect(menu.getByRole("link")).toHaveCount(2);
@@ -62,12 +62,12 @@ test.describe("an admin", () => {
     // An app of its own repository has no switcher.
     await page.goto("/apps/ledger-demo");
     await expect(page.getByRole("heading", { name: "Ledger Demo" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Switch app/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Ledger Demo" }).getByRole("button")).toHaveCount(0);
   });
 
   test("when the other app lacks the environment, the switch lands on its first one", async ({ page }) => {
     await page.goto("/apps/demo-app/prod");
-    await page.getByRole("button", { name: /^Switch app/ }).click();
+    await page.getByRole("heading").getByRole("button").click();
     await page.getByRole("navigation", { name: "Apps in this repository" }).getByRole("link", { name: /Static Demo/ }).click();
     await expect(page).toHaveURL(/\/apps\/static-demo$/);
     await expect(page.getByRole("heading", { name: "Static Demo" })).toBeVisible();
