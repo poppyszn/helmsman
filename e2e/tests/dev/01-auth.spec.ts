@@ -24,7 +24,7 @@ test.describe("sign in and out", () => {
     await loginAs(page, "alice");
     await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
     await expect(page.getByText("alice", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Demo App" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
   });
 
   test("a user outside the allowed organizations is refused with a clear message", async ({ page }) => {

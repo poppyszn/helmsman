@@ -57,8 +57,9 @@ test.describe("alice (admin)", () => {
 
   test("the dashboard lists the app with both environments and their status", async ({ page }) => {
     await page.goto("/");
+    // The repository is the group's heading; the app's row lists its environments.
+    await expect(page.getByRole("region", { name: "Repository acme-org/demo-app" })).toBeVisible();
     const card = page.getByRole("link", { name: /Demo App/ });
-    await expect(card).toContainText("acme-org/demo-app");
     await expect(card).toContainText("staging");
     await expect(card).toContainText("prod");
   });
@@ -68,7 +69,7 @@ test.describe("alice (admin)", () => {
     await page.getByPlaceholder(/Search apps/).fill("zzz-no-such-app");
     await expect(page.getByText("no matching apps")).toBeVisible();
     await page.getByPlaceholder(/Search apps/).fill("demo");
-    await expect(page.getByRole("heading", { name: "Demo App" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
   });
 
   test("an environment shows status, container, revision and agent facts", async ({ page }) => {

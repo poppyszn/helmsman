@@ -24,6 +24,28 @@ test.describe("an admin", () => {
     await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
   });
 
+  test("groups apps by repository, and a group can be collapsed", async ({ page }) => {
+    await page.goto("/");
+    // demo-app and static-demo share a repository, so they sit under one heading; ledger-demo has its own.
+    const group = page.getByRole("region", { name: "Repository acme-org/demo-app" });
+    await expect(group.getByRole("link", { name: /Demo App/ })).toBeVisible();
+    await expect(group.getByRole("link", { name: /Static Demo/ })).toBeVisible();
+    await expect(group.getByRole("link", { name: /Ledger Demo/ })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Repository other-org/ledger-demo" }).getByRole("link", { name: /Ledger Demo/ })).toBeVisible();
+
+    // Collapsing hides the apps, and the choice survives a reload.
+    await group.getByRole("button", { name: /demo-app/ }).click();
+    await expect(group.getByRole("link")).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Repository acme-org/demo-app" }).getByRole("link")).toHaveCount(0);
+    // Searching opens it again so a match is never hidden.
+    await page.getByPlaceholder("Search apps or repos...").fill("static");
+    await expect(page.getByRole("link", { name: /Static Demo/ })).toBeVisible();
+    await page.getByPlaceholder("Search apps or repos...").fill("");
+    await page.getByRole("region", { name: "Repository acme-org/demo-app" }).getByRole("button", { name: /demo-app/ }).click();
+    await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
+  });
+
   test("filters by tag, including environment names, and clears", async ({ page }) => {
     await page.goto("/");
     // The tags live in a dropdown that stays open while several are picked.
