@@ -47,7 +47,7 @@ export function RunsPanel({ app, env, tier, tz }: { app: string; env: string; ti
           <Sprout className="size-3.5" strokeWidth={1.5} />
           Run seed
         </Button>
-        <a href={`https://github.com/${d.repo}/actions`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400 hover:text-white">
+        <a href={`https://github.com/${d.repo}/actions`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1.5 text-xs font-mono text-sky-400 hover:text-sky-300">
           {d.repo}
           <ExternalLink className="size-3.5" strokeWidth={1.5} />
         </a>
@@ -173,7 +173,7 @@ function RunRow({ run, base, tz, onChanged }: { run: Run; base: string; tz: stri
               <div className="flex items-center gap-2 text-xs font-mono font-semibold text-zinc-200">
                 <StepIcon status={j.status} conclusion={j.conclusion} />
                 {j.name}
-                <a href={j.html_url} target="_blank" rel="noreferrer" className="ml-auto text-zinc-500 hover:text-white" title="Open the job on GitHub">
+                <a href={j.html_url} target="_blank" rel="noreferrer" className="ml-auto text-sky-400 hover:text-sky-300" title="Open the job on GitHub">
                   <ExternalLink className="size-3.5" strokeWidth={1.5} />
                 </a>
               </div>

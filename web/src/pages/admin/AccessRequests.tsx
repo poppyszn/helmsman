@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserRound } from "lucide-react";
 import { api, ApiError, formatTime, useMe, type AccessRequest, type App } from "@/lib/api";
+import { catalogEnvNames } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ function Grant({ req, roles, apps, onDone }: { req: AccessRequest; roles: Role[]
   const [env, setEnv] = useState("*");
   const [err, setErr] = useState<string | null>(null);
   const role = roles.find((r) => r.id === roleId);
-  const envNames = [...new Set((app === "*" ? apps : apps.filter((a) => a.id === app)).flatMap((a) => a.environments.map((e) => e.env)))].sort();
+  const envNames = catalogEnvNames(apps, app);
 
   const grant = useMutation({
     mutationFn: () => api("/api/admin/bindings", { method: "POST", json: { subject_type: "user", subject: req.login, role_id: roleId, app_id: app, env } }),

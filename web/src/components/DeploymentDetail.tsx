@@ -57,7 +57,7 @@ function JobCard({ base, job }: { base: string; job: RunJob }) {
           <FileText className="size-3.5" strokeWidth={1.5} />
           {showLog ? "Hide log" : failed ? "Show log (failed)" : "Show log"}
         </button>
-        <a href={job.html_url} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-white" title="Open the job on GitHub">
+        <a href={job.html_url} target="_blank" rel="noreferrer" className="text-sky-400 hover:text-sky-300" title="Open the job on GitHub">
           <ExternalLink className="size-3.5" strokeWidth={1.5} />
         </a>
       </div>

@@ -13,6 +13,13 @@ test("access shows the role bindings, including the team binding", async ({ page
   await page.goto("/admin/bindings");
   await expect(page.getByRole("heading", { name: "Access & Roles" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "acme-org/leads" }).first()).toContainText("approver");
+  // Choosing an app narrows the environment options to that app's catalog environments.
+  await page.getByLabel("App", { exact: true }).selectOption("static-demo");
+  await expect(page.getByLabel("Environment", { exact: true }).locator("option")).toHaveText([
+    "* (all non-prod)",
+    "** (all, including prod)",
+    "staging",
+  ]);
 });
 
 test("the catalog page reloads the catalog", async ({ page }) => {
@@ -97,6 +104,18 @@ test("the command palette opens from the keyboard and jumps to an app", async ({
   await expect(palette.getByText("Demo App").first()).toBeVisible();
   await box.press("Enter");
   await expect(page).toHaveURL(/\/apps\/demo-app/);
+});
+
+test("the command palette reaches setup check and admin pages", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog");
+  const box = palette.getByPlaceholder("Type a command or app...");
+  await box.fill("Setup check");
+  await expect(palette.getByText("Setup check").first()).toBeVisible();
+  await box.press("Enter");
+  await expect(page).toHaveURL(/\/admin\/doctor$/);
 });
 
 test("the sidebar can be collapsed and expanded", async ({ page }) => {

@@ -50,4 +50,17 @@ test.describe("sign in and out", () => {
     const me = await page.request.get("/api/me");
     expect(me.status()).toBe(401);
   });
+
+  test("signing out from the command palette ends the session", async ({ page }) => {
+    await loginAs(page, "carol");
+    await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+k");
+    const palette = page.getByRole("dialog");
+    const box = palette.getByPlaceholder("Type a command or app...");
+    await box.fill("Sign out");
+    await box.press("Enter");
+    await expect(page).toHaveURL(/\/login/);
+    const me = await page.request.get("/api/me");
+    expect(me.status()).toBe(401);
+  });
 });

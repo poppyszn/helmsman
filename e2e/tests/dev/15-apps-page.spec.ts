@@ -21,6 +21,7 @@ test.describe("an admin", () => {
     await page.reload();
     await expect(page.getByLabel("Organization")).toHaveValue("other-org");
     await page.getByLabel("Organization").selectOption("");
+    await expect(page).not.toHaveURL(/org=/);
     await expect(page.getByRole("link", { name: /Demo App/ })).toBeVisible();
   });
 

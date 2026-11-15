@@ -178,7 +178,7 @@ export default function Integrations() {
             {st?.has_password && !changePassword ? (
               <div className="mt-1.5 flex h-9 items-center justify-between rounded-md bg-black px-3 text-xs text-zinc-500">
                 saved
-                <button type="button" onClick={() => setChangePassword(true)} className="text-zinc-300 hover:text-white cursor-pointer">
+                <button type="button" onClick={() => setChangePassword(true)} className="text-sky-400 hover:text-sky-300 cursor-pointer">
                   change
                 </button>
               </div>
