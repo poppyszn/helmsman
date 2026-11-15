@@ -50,7 +50,7 @@ export default function GitHub() {
             </p>
           </div>
           {q.data?.authorize_url && (
-            <a href={q.data.authorize_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white">
+            <a href={q.data.authorize_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky-400 hover:text-sky-300">
               Grant access on GitHub
               <ExternalLink className="size-3.5" strokeWidth={1.5} />
             </a>
@@ -71,7 +71,7 @@ export default function GitHub() {
                 {o.members.length > 0 && <span className="text-zinc-500">: {o.members.join(", ")}</span>}
               </div>
               {o.policy_url && o.allowed && o.members.length === 0 && (
-                <a href={o.policy_url} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white">
+                <a href={o.policy_url} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-sky-400 hover:text-sky-300">
                   Approve the OAuth App for {o.org}
                   <ExternalLink className="size-3.5" strokeWidth={1.5} />
                 </a>

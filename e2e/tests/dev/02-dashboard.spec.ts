@@ -89,6 +89,13 @@ test.describe("alice (admin)", () => {
     await expect(page.getByRole("tab", { name: /prod/ })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByText(/^running$/i)).toBeVisible();
   });
+
+  test("switching environments keeps the active tab", async ({ page }) => {
+    await page.goto("/apps/demo-app/staging/deployments");
+    await page.getByRole("tab", { name: "prod" }).click();
+    await expect(page).toHaveURL(/\/apps\/demo-app\/prod\/deployments$/);
+    await expect(page.getByRole("tab", { name: "prod" })).toHaveAttribute("aria-selected", "true");
+  });
 });
 
 test.describe("carol (viewer on demo-app staging only)", () => {

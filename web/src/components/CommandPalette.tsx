@@ -1,18 +1,14 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Layers,
-  Users,
-  Shield,
-  BookOpen,
-  Cpu,
-  FileText,
   LogOut,
   CornerDownLeft,
 } from "lucide-react";
 import { api, useMe, type App } from "@/lib/api";
+import { signOut, visibleNavItems } from "@/lib/nav";
 
 type CommandItem = {
   id: string;
@@ -52,6 +48,7 @@ function CommandPaletteModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = React.useState("");
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: me } = useMe();
   const { data: apps = [] } = useQuery<App[]>({
@@ -79,57 +76,15 @@ function CommandPaletteModal({ onClose }: { onClose: () => void }) {
     });
 
     // Navigation section
-    list.push({
-      id: "nav-apps",
-      title: "Apps",
-      icon: Layers,
-      section: "Navigation",
-      onSelect: () => navigate("/"),
+    visibleNavItems(me).forEach((item) => {
+      list.push({
+        id: item.id,
+        title: item.title,
+        icon: item.icon,
+        section: "Navigation",
+        onSelect: () => navigate(item.to),
+      });
     });
-
-    if (me?.can.admin) {
-      list.push({
-        id: "nav-users",
-        title: "Users",
-        icon: Users,
-        section: "Navigation",
-        onSelect: () => navigate("/admin/users"),
-      });
-      list.push({
-        id: "nav-bindings",
-        title: "Access",
-        icon: Shield,
-        section: "Navigation",
-        onSelect: () => navigate("/admin/bindings"),
-      });
-      list.push({
-        id: "nav-catalog",
-        title: "Catalog",
-        icon: BookOpen,
-        section: "Navigation",
-        onSelect: () => navigate("/admin/catalog"),
-      });
-    }
-
-    if (me?.can.agents) {
-      list.push({
-        id: "nav-agents",
-        title: "Agents",
-        icon: Cpu,
-        section: "Navigation",
-        onSelect: () => navigate("/admin/agents"),
-      });
-    }
-
-    if (me?.can.audit) {
-      list.push({
-        id: "nav-audit",
-        title: "Audit log",
-        icon: FileText,
-        section: "Navigation",
-        onSelect: () => navigate("/admin/audit"),
-      });
-    }
 
     // Actions
     list.push({
@@ -137,10 +92,7 @@ function CommandPaletteModal({ onClose }: { onClose: () => void }) {
       title: "Sign out",
       icon: LogOut,
       section: "Actions",
-      onSelect: async () => {
-        await api("/auth/logout", { method: "POST" });
-        navigate("/login");
-      },
+      onSelect: () => signOut(qc, navigate),
     });
 
     if (!query.trim()) return list;
@@ -151,7 +103,7 @@ function CommandPaletteModal({ onClose }: { onClose: () => void }) {
         item.title.toLowerCase().includes(q) ||
         (item.subtitle && item.subtitle.toLowerCase().includes(q))
     );
-  }, [apps, me, query, navigate]);
+  }, [apps, me, qc, query, navigate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {

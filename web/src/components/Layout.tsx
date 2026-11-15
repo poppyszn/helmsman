@@ -3,23 +3,13 @@ import { Link, NavLink, Outlet, useNavigate, useLocation } from "react-router-do
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Anchor,
-  Layers,
-  Users,
-  Shield,
-  BookOpen,
-  Cpu,
-  GitBranch,
-  PlugZap,
-  ShieldCheck,
-  FileText,
-  Bell,
-  Stethoscope,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
 } from "lucide-react";
 import { api, useMe } from "@/lib/api";
+import { signOut, visibleNavItems } from "@/lib/nav";
 import { CommandPalette } from "@/components/CommandPalette";
 
 type Crumb = { label: string; to?: string };
@@ -67,12 +57,6 @@ export default function Layout() {
 
   if (!me) return null;
 
-  const signOut = async () => {
-    await api("/auth/logout", { method: "POST" });
-    qc.clear();
-    nav("/login");
-  };
-
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
     `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
       isActive
@@ -113,72 +97,18 @@ export default function Layout() {
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto space-y-1">
-          <NavLink to="/" end className={navItemClass} title="Apps">
-            <Layers className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-            {!collapsed && <span>Apps</span>}
-          </NavLink>
-
-          {me.can.admin && (
-            <NavLink to="/admin/users" className={navItemClass} title="Users">
-              <Users className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Users</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/bindings" className={navItemClass} title="Access">
-              <Shield className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Access</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/catalog" className={navItemClass} title="Catalog">
-              <BookOpen className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Catalog</span>}
-            </NavLink>
-          )}
-          {me.can.approve && (
-            <NavLink to="/approvals" className={navItemClass} title="Approvals">
-              <ShieldCheck className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Approvals</span>}
-              {!collapsed && pending > 0 && <span className="ml-auto rounded bg-amber-500/15 px-1.5 text-xs font-mono text-amber-300">{pending}</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/github" className={navItemClass} title="GitHub">
-              <GitBranch className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>GitHub</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/integrations" className={navItemClass} title="Integrations">
-              <PlugZap className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Integrations</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/notifications" className={navItemClass} title="Notifications">
-              <Bell className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Notifications</span>}
-            </NavLink>
-          )}
-          {me.can.admin && (
-            <NavLink to="/admin/doctor" className={navItemClass} title="Setup check">
-              <Stethoscope className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Setup check</span>}
-            </NavLink>
-          )}
-          {me.can.agents && (
-            <NavLink to="/admin/agents" className={navItemClass} title="Agents">
-              <Cpu className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Agents</span>}
-            </NavLink>
-          )}
-          {me.can.audit && (
-            <NavLink to="/admin/audit" className={navItemClass} title="Audit log">
-              <FileText className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
-              {!collapsed && <span>Audit log</span>}
-            </NavLink>
-          )}
+          {visibleNavItems(me).map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink key={item.id} to={item.to} end={item.end} className={navItemClass} title={item.title}>
+                <Icon className="size-4 shrink-0 text-zinc-400 group-hover:text-zinc-200" strokeWidth={1.5} />
+                {!collapsed && <span>{item.title}</span>}
+                {item.to === "/approvals" && !collapsed && pending > 0 && (
+                  <span className="ml-auto rounded bg-amber-500/15 px-1.5 text-xs font-mono text-amber-300">{pending}</span>
+                )}
+              </NavLink>
+            );
+          })}
         </div>
 
         {/* Compact User Footer */}
@@ -189,7 +119,7 @@ export default function Layout() {
             </div>
           )}
           <button
-            onClick={signOut}
+            onClick={() => signOut(qc, nav)}
             title="Sign out"
             className="rounded-md p-1.5 text-zinc-400 hover:text-white hover:bg-[#121215] transition-colors"
           >

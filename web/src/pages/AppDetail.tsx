@@ -133,7 +133,7 @@ export default function AppDetail() {
               key={e.env}
               role="tab"
               aria-selected={isActive}
-              onClick={() => navigate(`/apps/${data.id}/${e.env}`)}
+              onClick={() => navigate(`/apps/${data.id}/${e.env}${tabParam ? `/${tabParam}` : ""}`)}
               className={`flex items-center gap-2 transition-colors cursor-pointer select-none ${
                 isActive
                   ? "text-white font-semibold underline decoration-2 underline-offset-8"

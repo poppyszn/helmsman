@@ -27,7 +27,7 @@ export default function Approvals() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-white">Approvals</h1>
-        <p className="mt-1 text-sm text-zinc-400">Production migrations wait here until a second person accepts them. You cannot approve your own request.</p>
+        <p className="mt-1 text-sm text-zinc-400">Runs from environments that require approval wait here until a second person accepts them. You cannot approve your own request.</p>
       </div>
       {err && <p role="alert" className="rounded-lg bg-rose-500/10 p-3 text-xs text-rose-300 font-mono">{err}</p>}
       {runs.length === 0 ? (
@@ -36,7 +36,7 @@ export default function Approvals() {
         <div className="space-y-2">
           {runs.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-[#0a0a0d] px-4 py-3.5">
-              <Link to={`/apps/${r.app}`} className="font-mono text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline">
+              <Link to={`/apps/${r.app}/${r.env}/runs`} className="font-mono text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline">
                 {r.app}/{r.env}
               </Link>
               <span className="font-mono text-sm text-zinc-200">{r.action}</span>

@@ -217,11 +217,12 @@ export default function Apps() {
   };
   const chooseOrg = (o: string) => {
     try {
-      localStorage.setItem(ORG_KEY, o);
+      if (o) localStorage.setItem(ORG_KEY, o);
+      else localStorage.removeItem(ORG_KEY);
     } catch {
       /* a private window: the choice just is not remembered */
     }
-    update((p) => (o ? p.set("org", o) : p.set("org", "")));
+    update((p) => (o ? p.set("org", o) : p.delete("org")));
   };
   const toggleTag = (t: string) =>
     update((p) => {

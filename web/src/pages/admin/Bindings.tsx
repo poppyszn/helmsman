@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api, type App } from "@/lib/api";
+import { catalogEnvNames } from "@/lib/catalog";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -45,6 +46,8 @@ export default function Bindings() {
     env: "*",
   });
   const [err, setErr] = useState<string | null>(null);
+
+  const envNames = catalogEnvNames(apps.data ?? [], form.app_id);
 
   const create = useMutation({
     mutationFn: () =>
@@ -90,6 +93,7 @@ export default function Bindings() {
           <label className="text-xs font-mono font-medium text-zinc-400">
             Type<br />
             <select
+              aria-label="Type"
               className={selectField}
               value={form.subject_type}
               onChange={(e) => setForm({ ...form, subject_type: e.target.value })}
@@ -113,6 +117,7 @@ export default function Bindings() {
           <label className="text-xs font-mono font-medium text-zinc-400">
             Role<br />
             <select
+              aria-label="Role"
               className={selectField}
               value={form.role_id}
               onChange={(e) => setForm({ ...form, role_id: Number(e.target.value) })}
@@ -128,9 +133,15 @@ export default function Bindings() {
           <label className="text-xs font-mono font-medium text-zinc-400">
             App<br />
             <select
+              aria-label="App"
               className={selectField}
               value={form.app_id}
-              onChange={(e) => setForm({ ...form, app_id: e.target.value })}
+              onChange={(e) => {
+                const appId = e.target.value;
+                const nextEnvs = catalogEnvNames(apps.data ?? [], appId);
+                const keepEnv = form.env === "*" || form.env === "**" || nextEnvs.includes(form.env);
+                setForm({ ...form, app_id: appId, env: keepEnv ? form.env : "*" });
+              }}
             >
               <option value="*" className="bg-black text-white">* (all apps)</option>
               {apps.data?.map((a) => (
@@ -144,14 +155,18 @@ export default function Bindings() {
           <label className="text-xs font-mono font-medium text-zinc-400">
             Environment<br />
             <select
+              aria-label="Environment"
               className={selectField}
               value={form.env}
               onChange={(e) => setForm({ ...form, env: e.target.value })}
             >
               <option value="*" className="bg-black text-white">* (all non-prod)</option>
               <option value="**" className="bg-black text-white">** (all, including prod)</option>
-              <option value="staging" className="bg-black text-white">staging</option>
-              <option value="prod" className="bg-black text-white">prod</option>
+              {envNames.map((n) => (
+                <option key={n} value={n} className="bg-black text-white">
+                  {n}
+                </option>
+              ))}
             </select>
           </label>
 

@@ -61,6 +61,7 @@ test("bob requests, erin approves, and the run completes", async ({ browser }) =
   await expect(erin.page.getByRole("link", { name: /Approvals/ })).toBeVisible();
   await erin.page.getByRole("link", { name: /Approvals/ }).click();
   const card = erin.page.locator("div").filter({ hasText: /demo-app\/prod/ }).filter({ hasText: "requested by bob" }).last();
+  await expect(card.getByRole("link", { name: "demo-app/prod" })).toHaveAttribute("href", "/apps/demo-app/prod/runs");
   await expect(card).toContainText("migrate");
   await card.getByRole("button", { name: "Approve" }).click();
   await expect(erin.page.getByText("Nothing is waiting for approval.")).toBeVisible();
